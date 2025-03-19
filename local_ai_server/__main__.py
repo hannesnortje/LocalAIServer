@@ -9,6 +9,7 @@ import os
 import _thread
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
+import ssl
 
 # Add package root to Python path for imports
 package_root = Path(__file__).parent.parent
@@ -75,31 +76,29 @@ def main():
             return 0
 
         # Generate SSL certificates
-        _, cert_file, key_file = get_ssl_context()
+        ssl_context, cert_file, key_file = get_ssl_context()
         
-        # Configure servers with minimal timeouts
+        # Configure HTTP and HTTPS servers
         http_config = uvicorn.Config(
-            app, 
-            host="0.0.0.0", 
+            app=app,
+            host="0.0.0.0",
             port=HTTP_PORT,
             log_level="info",
-            timeout_keep_alive=2,
-            timeout_graceful_shutdown=2,
-            limit_concurrency=100,  # Limit concurrent connections
-            # Don't set limit_max_requests to 0 (unlimited is None)
+            timeout_keep_alive=5,
+            timeout_graceful_shutdown=3,
+            limit_concurrency=100
         )
         
         https_config = uvicorn.Config(
-            app, 
-            host="0.0.0.0", 
+            app=app,
+            host="0.0.0.0",
             port=HTTPS_PORT,
             ssl_keyfile=key_file,
             ssl_certfile=cert_file,
             log_level="info",
-            timeout_keep_alive=2,
-            timeout_graceful_shutdown=2,
-            limit_concurrency=100,
-            # Don't set limit_max_requests to 0 (unlimited is None)
+            timeout_keep_alive=5,
+            timeout_graceful_shutdown=3,
+            limit_concurrency=100
         )
         
         # Register signal handlers
@@ -114,7 +113,7 @@ def main():
         print(f"- https://localhost:{HTTPS_PORT}/docs")
         print("\nPress Ctrl+C to stop")
         
-        # Start servers in separate threads
+        # Start both HTTP and HTTPS servers
         executor = ThreadPoolExecutor(max_workers=2)
         http_future = executor.submit(run_server, http_config)
         https_future = executor.submit(run_server, https_config)
@@ -126,12 +125,12 @@ def main():
                 time.sleep(0.1)
                 
                 # Check if either server failed
-                for future in [http_future, https_future]:
+                for server_name, future in [("HTTP", http_future), ("HTTPS", https_future)]:
                     if future.done() and future.exception():
-                        print(f"Server error: {future.exception()}")
-                        return 1
+                        logger.error(f"{server_name} server error: {future.exception()}")
+                        # Continue even if one server fails
             
-            print("Shutting down servers...")
+            print("Shutting down server...")
             
             # Try a graceful shutdown by stopping executor
             executor.shutdown(wait=False, cancel_futures=True)
