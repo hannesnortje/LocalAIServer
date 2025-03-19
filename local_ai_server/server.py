@@ -80,21 +80,35 @@ app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
 # Predefined model list
 AVAILABLE_MODELS = {
-    "llama2-7b-chat.gguf": {
-        "name": "Llama 2 7B Chat",
-        "description": "Meta's Llama 2 7B optimized for chat",
-        "size": "4.1GB",
-        "url": "https://huggingface.co/TheBloke/Llama-2-7B-Chat-GGUF/resolve/main/llama-2-7b-chat.Q4_K_M.gguf",
+    "phi-2.Q4_K_M.gguf": {
+        "name": "Phi-2 (2.7B) Quantized",
+        "description": "Microsoft's small but powerful model, great for low-end hardware",
+        "size": "1.7GB",
+        "url": "https://huggingface.co/TheBloke/phi-2-GGUF/resolve/main/phi-2.Q4_K_M.gguf",
         "type": "gguf"
     },
-    "mistral-7b-instruct.gguf": {
-        "name": "Mistral 7B Instruct",
-        "description": "Mistral AI's 7B instruction-tuned model",
-        "size": "4.1GB",
-        "url": "https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.1-GGUF/resolve/main/mistral-7b-instruct-v0.1.Q4_K_M.gguf",
+    "tinyllama-1.1b-chat.Q4_K_M.gguf": {
+        "name": "TinyLlama Chat (1.1B)",
+        "description": "Extremely lightweight chat model, runs on most hardware",
+        "size": "0.7GB",
+        "url": "https://huggingface.co/TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF/resolve/main/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf",
         "type": "gguf"
     },
-    "openchat-3.5.gguf": {
+    "neural-chat-7b-v3-1.Q4_K_M.gguf": {
+        "name": "Neural Chat 7B v3.1",
+        "description": "Balanced performance and quality, good for 8GB+ RAM",
+        "size": "4.1GB",
+        "url": "https://huggingface.co/TheBloke/neural-chat-7B-v3-1-GGUF/resolve/main/neural-chat-7b-v3-1.Q4_K_M.gguf",
+        "type": "gguf"
+    },
+    "stablelm-zephyr-3b.Q4_K_M.gguf": {
+        "name": "StableLM Zephyr 3B",
+        "description": "Fast and efficient 3B parameter model",
+        "size": "1.9GB",
+        "url": "https://huggingface.co/TheBloke/stablelm-zephyr-3b-GGUF/resolve/main/stablelm-zephyr-3b.Q4_K_M.gguf",
+        "type": "gguf"
+    },
+    "openchat_3.5.Q4_K_M.gguf": {
         "name": "OpenChat 3.5",
         "description": "Open source alternative to ChatGPT",
         "size": "4.1GB",
