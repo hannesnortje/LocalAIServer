@@ -1,8 +1,9 @@
 import os
 from pathlib import Path
 from fastapi import FastAPI, HTTPException, status
-from fastapi.responses import RedirectResponse, JSONResponse
+from fastapi.responses import RedirectResponse, JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import List, Optional, Dict
 import torch
@@ -12,6 +13,9 @@ import logging
 import shutil
 import time
 import ssl
+import aiohttp
+import asyncio
+import json
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -69,9 +73,86 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
-@app.get("/", include_in_schema=False)
-async def root():
-    return RedirectResponse(url="/docs", status_code=status.HTTP_303_SEE_OTHER)
+# Mount static files directory
+static_dir = PACKAGE_DIR / 'static'
+static_dir.mkdir(exist_ok=True)
+app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+
+# Predefined model list
+AVAILABLE_MODELS = {
+    "llama2-7b-chat.gguf": {
+        "name": "Llama 2 7B Chat",
+        "description": "Meta's Llama 2 7B optimized for chat",
+        "size": "4.1GB",
+        "url": "https://huggingface.co/TheBloke/Llama-2-7B-Chat-GGUF/resolve/main/llama-2-7b-chat.Q4_K_M.gguf",
+        "type": "gguf"
+    },
+    "mistral-7b-instruct.gguf": {
+        "name": "Mistral 7B Instruct",
+        "description": "Mistral AI's 7B instruction-tuned model",
+        "size": "4.1GB",
+        "url": "https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.1-GGUF/resolve/main/mistral-7b-instruct-v0.1.Q4_K_M.gguf",
+        "type": "gguf"
+    },
+    "openchat-3.5.gguf": {
+        "name": "OpenChat 3.5",
+        "description": "Open source alternative to ChatGPT",
+        "size": "4.1GB",
+        "url": "https://huggingface.co/TheBloke/openchat_3.5-GGUF/resolve/main/openchat_3.5.Q4_K_M.gguf",
+        "type": "gguf"
+    }
+}
+
+@app.get("/api/available-models")
+async def get_available_models():
+    """Get list of available models for download"""
+    return AVAILABLE_MODELS
+
+@app.post("/api/download-model/{model_id}")
+async def download_model(model_id: str):
+    """Download a model"""
+    if model_id not in AVAILABLE_MODELS:
+        raise HTTPException(status_code=404, detail="Model not found")
+    
+    model_info = AVAILABLE_MODELS[model_id]
+    target_path = MODELS_DIR / model_id
+    
+    if target_path.exists():
+        return {"status": "exists", "message": "Model already downloaded"}
+    
+    async with aiohttp.ClientSession() as session:
+        async with session.get(model_info["url"]) as response:
+            if response.status != 200:
+                raise HTTPException(status_code=500, detail="Download failed")
+            
+            total_size = int(response.headers.get('content-length', 0))
+            block_size = 1024 * 1024  # 1MB chunks
+            
+            with open(target_path, 'wb') as f:
+                downloaded = 0
+                async for data in response.content.iter_chunked(block_size):
+                    f.write(data)
+                    downloaded += len(data)
+    
+    return {
+        "status": "success",
+        "message": "Model downloaded successfully",
+        "model_id": model_id
+    }
+
+@app.delete("/api/models/{model_id}")
+async def delete_model(model_id: str):
+    """Delete a model"""
+    model_path = MODELS_DIR / model_id
+    if not model_path.exists():
+        raise HTTPException(status_code=404, detail="Model not found")
+    
+    try:
+        model_path.unlink()  # Delete the file
+        return {"status": "success", "message": f"Model {model_id} deleted successfully"}
+    except Exception as e:
+        logger.error(f"Error deleting model: {e}")
+        raise HTTPException(status_code=500, detail="Failed to delete model")
 
 @app.get("/health", tags=["Health"])
 async def health_check():
@@ -342,6 +423,13 @@ async def models_status():
         models=model_manager.get_status(),
         server_status="ready" if model_manager.model is not None else "idle"
     )
+
+@app.get("/", include_in_schema=False)
+async def serve_index():
+    """Serve the index.html page"""
+    if not (static_dir / "index.html").exists():
+        return RedirectResponse(url="/docs", status_code=status.HTTP_303_SEE_OTHER)
+    return FileResponse(static_dir / "index.html")
 
 def get_ssl_context():
     try:

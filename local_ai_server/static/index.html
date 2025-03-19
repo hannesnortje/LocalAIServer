@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Local AI Server - Model Manager</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <style>
+        .model-card { transition: transform 0.2s; }
+        .model-card:hover { transform: translateY(-5px); }
+        .progress { height: 25px; }
+        .btn-group { gap: 0.5rem; }
+    </style>
+</head>
+<body class="bg-light">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="#">Local AI Server</a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/docs">API Docs</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container my-4">
+        <h2 class="mb-4">Model Management</h2>
+        
+        <div class="row" id="modelList">
+            <!-- Models will be loaded here -->
+        </div>
+    </div>
+
+    <script>
+        async function loadModels() {
+            try {
+                const [availableModels, installedModels] = await Promise.all([
+                    fetch('/api/available-models').then(r => r.json()),
+                    fetch('/api/models/all').then(r => r.json())
+                ]);
+
+                const modelList = document.getElementById('modelList');
+                modelList.innerHTML = '';
+
+                for (const [id, model] of Object.entries(availableModels)) {
+                    const isInstalled = installedModels.some(m => m.name === id);
+                    
+                    modelList.innerHTML += `
+                        <div class="col-md-4 mb-4">
+                            <div class="card model-card h-100">
+                                <div class="card-body">
+                                    <h5 class="card-title">${model.name}</h5>
+                                    <p class="card-text">${model.description}</p>
+                                    <p class="text-muted">Size: ${model.size}</p>
+                                    <div class="progress mb-3 d-none" id="progress-${id}">
+                                        <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                             role="progressbar" style="width: 0%"></div>
+                                    </div>
+                                    <div class="btn-group">
+                                        <button class="btn btn-${isInstalled ? 'success' : 'primary'}" 
+                                                onclick="downloadModel('${id}')"
+                                                ${isInstalled ? 'disabled' : ''}>
+                                            <i class="fa fa-${isInstalled ? 'check' : 'download'}"></i>
+                                            ${isInstalled ? 'Installed' : 'Download'}
+                                        </button>
+                                        ${isInstalled ? `
+                                            <button class="btn btn-danger" onclick="deleteModel('${id}')">
+                                                <i class="fa fa-trash"></i>
+                                                Delete
+                                            </button>
+                                        ` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error loading models:', error);
+            }
+        }
+
+        async function downloadModel(modelId) {
+            const button = document.querySelector(`button[onclick="downloadModel('${modelId}')"]`);
+            const progress = document.getElementById(`progress-${modelId}`);
+            
+            button.disabled = true;
+            progress.classList.remove('d-none');
+
+            try {
+                const response = await fetch(`/api/download-model/${modelId}`, {
+                    method: 'POST'
+                });
+                
+                if (!response.ok) throw new Error('Download failed');
+                
+                button.innerHTML = '<i class="fa fa-check"></i> Installed';
+                button.classList.replace('btn-primary', 'btn-success');
+            } catch (error) {
+                console.error('Error downloading model:', error);
+                button.disabled = false;
+                progress.classList.add('d-none');
+            }
+        }
+
+        async function deleteModel(modelId) {
+            if (!confirm(`Are you sure you want to delete ${modelId}?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/models/${modelId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (!response.ok) throw new Error('Delete failed');
+                
+                // Reload the model list to update the UI
+                await loadModels();
+            } catch (error) {
+                console.error('Error deleting model:', error);
+                alert('Failed to delete model');
+            }
+        }
+
+        // Load models on page load
+        document.addEventListener('DOMContentLoaded', loadModels);
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
