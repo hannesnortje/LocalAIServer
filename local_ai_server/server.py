@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 from fastapi import FastAPI, HTTPException, status
-from fastapi.responses import RedirectResponse, JSONResponse, FileResponse
+from fastapi.responses import RedirectResponse, JSONResponse, FileResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -110,35 +110,67 @@ async def get_available_models():
 
 @app.post("/api/download-model/{model_id}")
 async def download_model(model_id: str):
-    """Download a model"""
+    """Download a model with progress streaming"""
     if model_id not in AVAILABLE_MODELS:
         raise HTTPException(status_code=404, detail="Model not found")
     
     model_info = AVAILABLE_MODELS[model_id]
     target_path = MODELS_DIR / model_id
-    
-    if target_path.exists():
-        return {"status": "exists", "message": "Model already downloaded"}
-    
-    async with aiohttp.ClientSession() as session:
-        async with session.get(model_info["url"]) as response:
-            if response.status != 200:
-                raise HTTPException(status_code=500, detail="Download failed")
-            
-            total_size = int(response.headers.get('content-length', 0))
-            block_size = 1024 * 1024  # 1MB chunks
-            
-            with open(target_path, 'wb') as f:
-                downloaded = 0
-                async for data in response.content.iter_chunked(block_size):
-                    f.write(data)
-                    downloaded += len(data)
-    
-    return {
-        "status": "success",
-        "message": "Model downloaded successfully",
-        "model_id": model_id
-    }
+    temp_path = target_path.with_suffix('.tmp')
+
+    async def download_stream():
+        if target_path.exists():
+            yield json.dumps({
+                "status": "exists",
+                "progress": 100,
+                "message": "Model already downloaded"
+            }) + "\n"
+            return
+
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(model_info["url"]) as response:
+                    if response.status != 200:
+                        if temp_path.exists():
+                            temp_path.unlink()
+                        raise HTTPException(status_code=500, detail="Download failed")
+                    
+                    total_size = int(response.headers.get('content-length', 0))
+                    
+                    with open(temp_path, 'wb') as f:
+                        downloaded = 0
+                        async for data in response.content.iter_chunked(1024*1024):
+                            f.write(data)
+                            downloaded += len(data)
+                            progress = int((downloaded / total_size) * 100) if total_size else 0
+                            
+                            yield json.dumps({
+                                "status": "downloading",
+                                "progress": progress,
+                                "downloaded": downloaded,
+                                "total": total_size
+                            }) + "\n"
+                    
+                    # Only rename file if download completed successfully
+                    temp_path.rename(target_path)
+                    
+                    yield json.dumps({
+                        "status": "success",
+                        "progress": 100,
+                        "message": "Model downloaded successfully",
+                        "model_id": model_id
+                    }) + "\n"
+        except Exception as e:
+            # Clean up temp file on error
+            if temp_path.exists():
+                temp_path.unlink()
+            logger.error(f"Download error: {e}")
+            raise
+
+    return StreamingResponse(
+        download_stream(),
+        media_type="application/x-ndjson"
+    )
 
 @app.delete("/api/models/{model_id}")
 async def delete_model(model_id: str):
