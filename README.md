@@ -12,7 +12,23 @@ sudo apt-get install python3-dev build-essential
 
 ### Using pipx (Recommended)
 ```bash
+# Install from local directory
 pipx install .
+
+# Or install directly from GitHub
+pipx install git+https://github.com/hannesnortje/LocalAIServer.git
+```
+
+### Installing/Reinstalling from GitHub
+```bash
+# Remove existing installation (if any)
+pipx uninstall local-ai-server
+
+# Install fresh copy
+pipx install git+https://github.com/hannesnortje/LocalAIServer.git
+
+# Verify installation
+local-ai-server --version
 ```
 
 ### Development Installation
