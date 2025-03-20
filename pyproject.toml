@@ -43,14 +43,15 @@ local-ai-server = "local_ai_server.cli:cli"
 
 [tool.setuptools]
 package-dir = {"" = "."}
-packages = ["local_ai_server"]
-package-data = {"local_ai_server" = [
+include-package-data = true
+
+[tool.setuptools.package-data]
+local_ai_server = [
     "static/*",
     "models/.gitkeep",
     "ssl/.gitkeep",
     "storage/vectors/.gitkeep"
-]}
-include-package-data = true
+]
 
 [tool.setuptools.packages.find]
 where = ["."]
