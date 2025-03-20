@@ -6,11 +6,22 @@ build-backend = "setuptools.build_meta"
 name = "local_ai_server"
 version = "0.1.0"
 description = "A local server that provides OpenAI-compatible endpoints for language models"
+readme = "README.md"
+license = "MIT"
 authors = [
     {name = "Local AI Server Contributors"}
 ]
-license = {text = "MIT"}
 requires-python = ">=3.8"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12"
+]
 dependencies = [
     "transformers>=4.0.0",
     "torch>=2.0.0",
@@ -21,8 +32,20 @@ dependencies = [
     "werkzeug>=2.0.0",
     "flask-swagger-ui>=3.36.0",
     "requests>=2.25.0",
-    "waitress>=2.1.0"
+    "waitress>=2.1.0",
+    "click>=8.0.0"
 ]
 
 [project.scripts]
-local-ai-server = "local_ai_server.__main__:main"
+local-ai-server = "local_ai_server.cli:cli"
+
+[tool.setuptools]
+package-dir = {"" = "."}
+packages = ["local_ai_server"]
+
+[tool.setuptools.package-data]
+local_ai_server = [
+    "static/*",
+    "models/.gitkeep",
+    "ssl/.gitkeep"
+]
