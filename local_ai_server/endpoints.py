@@ -9,6 +9,7 @@ from .models_config import AVAILABLE_MODELS
 from .model_manager import model_manager
 from .config import MODELS_DIR
 from .vector_store import get_vector_store
+from .rag import RAG
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +58,97 @@ def setup_routes(app):
 
             # Extract only valid parameters that are explicitly provided
             params = {k: v for k, v in data.items() if k in VALID_MODEL_PARAMS and v is not None}
+            
+            # Check if RAG should be used
+            use_retrieval = data.get('use_retrieval', False)
+            
+            if use_retrieval:
+                # Get the last message as the query
+                if messages[-1]['role'] != 'user':
+                    return jsonify({"error": "Last message must be from the user when using retrieval"}), 400
+                
+                query = messages[-1]['content']
+                
+                # Extract search parameters
+                search_params = data.get('search_params', {})
+                
+                # Handle streaming for RAG
+                if params.get('stream', False):
+                    def generate():
+                        try:
+                            # Generate RAG response
+                            rag_params = params.copy()
+                            rag_params.pop('stream', None)
+                            
+                            response = RAG.generate_rag_response(
+                                query=query,
+                                model_name=model_name,
+                                search_params=search_params,
+                                generation_params=rag_params
+                            )
+                            
+                            doc_count = len(response['retrieved_documents'])
+                            rag_answer = response['answer']
+                            
+                            yield f"data: {json.dumps({
+                                'id': f'chatrag_{int(time.time())}',
+                                'object': 'chat.completion.chunk',
+                                'created': int(time.time()),
+                                'model': model_name,
+                                'choices': [{
+                                    'index': 0,
+                                    'delta': {
+                                        'role': 'assistant',
+                                        'content': rag_answer
+                                    },
+                                    'finish_reason': 'stop'
+                                }],
+                                'usage': {
+                                    'prompt_tokens': 0,  # Estimated
+                                    'completion_tokens': len(rag_answer.split()),
+                                    'total_tokens': len(rag_answer.split())
+                                }
+                            })}\n\n"
+                            yield "data: [DONE]\n\n"
+                        except Exception as e:
+                            logger.error(f"RAG streaming error: {e}")
+                            yield f"data: {json.dumps({'error': str(e)})}\n\n"
 
+                    return Response(
+                        stream_with_context(generate()), 
+                        mimetype='text/event-stream',
+                        headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'}
+                    )
+                
+                # Regular RAG response
+                response = RAG.generate_rag_response(
+                    query=query,
+                    model_name=model_name,
+                    search_params=search_params,
+                    generation_params=params
+                )
+                
+                return jsonify({
+                    "id": f"chatrag_{int(time.time())}",
+                    "object": "chat.completion",
+                    "created": int(time.time()),
+                    "model": model_name,
+                    "choices": [{
+                        "index": 0,
+                        "message": {
+                            "role": "assistant",
+                            "content": response["answer"]
+                        },
+                        "finish_reason": "stop"
+                    }],
+                    "usage": {
+                        "prompt_tokens": sum(len(m.get('content', '').split()) for m in messages),
+                        "completion_tokens": len(response["answer"].split()),
+                        "total_tokens": sum(len(m.get('content', '').split()) for m in messages) + len(response["answer"].split())
+                    }
+                })
+            
+            # Regular chat completion (non-RAG) - continue with existing code
             # Load model if needed
             if model_manager.model is None or model_manager.current_model_name != model_name:
                 try:
@@ -368,4 +459,80 @@ def setup_routes(app):
 
         except Exception as e:
             logger.error(f"Error in completion: {e}")
+            return jsonify({"error": str(e)}), 500
+
+    @app.route("/api/rag", methods=['POST'])
+    def rag_completion():
+        """Generate response using RAG (Retrieval-Augmented Generation)"""
+        try:
+            data = request.get_json()
+            if not data:
+                return jsonify({"error": "No JSON data provided"}), 400
+
+            query = data.get('query')
+            if not query:
+                return jsonify({"error": "Query is required"}), 400
+                
+            model_name = data.get('model')
+            if not model_name:
+                return jsonify({"error": "Model name is required"}), 400
+                
+            # Extract parameters for search and generation
+            search_params = data.get('search_params', {})
+            generation_params = {k: v for k, v in data.items() if k in VALID_MODEL_PARAMS and v is not None}
+            
+            # Handle streaming
+            if generation_params.get('stream', False):
+                def generate():
+                    try:
+                        # Generate response using RAG
+                        generation_params_copy = generation_params.copy()
+                        generation_params_copy.pop('stream', None)
+                        response = RAG.generate_rag_response(
+                            query=query,
+                            model_name=model_name,
+                            search_params=search_params,
+                            generation_params=generation_params_copy
+                        )
+                        
+                        yield f"data: {json.dumps({
+                            'id': f'rag_{int(time.time())}',
+                            'object': 'rag.completion.chunk',
+                            'created': int(time.time()),
+                            'model': model_name,
+                            'answer': response['answer'],
+                            'retrieved_document_count': len(response['retrieved_documents']),
+                            'finish_reason': 'stop'
+                        })}\n\n"
+                        yield "data: [DONE]\n\n"
+                    except Exception as e:
+                        logger.error(f"RAG streaming error: {e}")
+                        yield f"data: {json.dumps({'error': str(e)})}\n\n"
+                
+                return Response(
+                    stream_with_context(generate()),
+                    mimetype='text/event-stream',
+                    headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'}
+                )
+            
+            # Generate response using RAG
+            response = RAG.generate_rag_response(
+                query=query,
+                model_name=model_name,
+                search_params=search_params,
+                generation_params=generation_params
+            )
+            
+            return jsonify({
+                "id": f"rag_{int(time.time())}",
+                "object": "rag.completion",
+                "created": int(time.time()),
+                "model": model_name,
+                "answer": response["answer"],
+                "retrieved_documents": response["retrieved_documents"],
+                "metadata": response["metadata"]
+            })
+            
+        except Exception as e:
+            logger.error(f"Error in RAG completion: {str(e)}", exc_info=True)
             return jsonify({"error": str(e)}), 500

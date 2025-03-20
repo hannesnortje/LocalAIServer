@@ -35,3 +35,6 @@
 2025-03-20 12:22:31,934 - local_ai_server.vector_store - INFO - Created collection: documents
 2025-03-20 12:22:33,064 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
 2025-03-20 12:22:33,065 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 12:40:19,173 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 12:40:19,173 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 12:40:20,881 - local_ai_server.vector_store - INFO - Created collection: documents

@@ -135,7 +135,19 @@ def serve_swagger():
                                             }
                                         },
                                         "stream": {"type": "boolean"},
-                                        "temperature": {"type": "number"}
+                                        "temperature": {"type": "number"},
+                                        "use_retrieval": {
+                                            "type": "boolean", 
+                                            "description": "Whether to use retrieval-augmented generation"
+                                        },
+                                        "search_params": {
+                                            "type": "object",
+                                            "description": "Parameters for document retrieval when use_retrieval=true",
+                                            "properties": {
+                                                "limit": {"type": "integer", "default": 4},
+                                                "filter": {"type": "object"}
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -284,6 +296,43 @@ def serve_swagger():
                     "responses": {
                         "200": {"description": "Search results"},
                         "400": {"description": "Invalid request"}
+                    }
+                }
+            },
+            "/api/rag": {
+                "post": {
+                    "summary": "RAG Completion",
+                    "description": "Generate responses using Retrieval-Augmented Generation",
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "query": {"type": "string", "description": "User question to answer"},
+                                        "model": {"type": "string", "description": "Model ID to use for generation"},
+                                        "search_params": {
+                                            "type": "object",
+                                            "properties": {
+                                                "limit": {"type": "integer", "default": 4, "description": "Number of documents to retrieve"},
+                                                "filter": {"type": "object", "description": "Filter criteria for document search"}
+                                            }
+                                        },
+                                        "temperature": {"type": "number", "description": "Sampling temperature"},
+                                        "max_tokens": {"type": "integer", "description": "Maximum tokens to generate"},
+                                        "stream": {"type": "boolean", "description": "Stream the response"},
+                                        "top_p": {"type": "number", "description": "Nucleus sampling parameter"}
+                                    },
+                                    "required": ["query", "model"]
+                                }
+                            }
+                        }
+                    },
+                    "responses": {
+                        "200": {"description": "RAG completion response"},
+                        "400": {"description": "Missing required parameters"},
+                        "500": {"description": "Server error"}
                     }
                 }
             }
