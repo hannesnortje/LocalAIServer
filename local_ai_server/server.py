@@ -1,108 +1,163 @@
 import os
 from pathlib import Path
-from fastapi import FastAPI, HTTPException, status
-from fastapi.responses import RedirectResponse, JSONResponse, FileResponse, StreamingResponse
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
-from typing import List, Optional, Dict
-import torch
-from transformers import AutoTokenizer, AutoModelForCausalLM
-from llama_cpp import Llama
+from flask import Flask, redirect, jsonify, send_from_directory
+from flask_swagger_ui import get_swaggerui_blueprint
 import logging
-import shutil
-import time
 import ssl
-import aiohttp
-import asyncio
-import json
+from OpenSSL import crypto
 
+from .models_config import AVAILABLE_MODELS
+from .endpoints import setup_routes
+from .model_manager import model_manager
+from .config import (
+    PACKAGE_DIR, 
+    MODELS_DIR, STATIC_DIR, SSL_DIR,
+    HTTP_PORT, HTTPS_PORT
+)
+
+# Configure logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-try:
-    from OpenSSL import crypto
-except ImportError:
-    logger.error("OpenSSL not found. Installing required packages...")
-    import subprocess
-    subprocess.check_call(["pip", "install", "pyOpenSSL", "cryptography"])
-    from OpenSSL import crypto
-
-from .models_config import AVAILABLE_MODELS
-from .endpoints import router
-from .model_manager import model_manager
-from .config import (
-    HTTP_PORT, HTTPS_PORT, PACKAGE_DIR, 
-    MODELS_DIR, STATIC_DIR, SSL_DIR
-)
-
-# Configuration has been moved to config.py
-logger.info(f"Package directory: {PACKAGE_DIR}")
-logger.info(f"Models directory: {MODELS_DIR}")
-logger.info(f"Models directory absolute: {MODELS_DIR.absolute()}")
-
-def verify_model_directory():
-    logger.debug(f"Verifying models directory: {MODELS_DIR}")
-    
-    # Check both package directory and parent directory for models
-    search_paths = [PACKAGE_DIR, PACKAGE_DIR.parent]
-    for search_path in search_paths:
-        project_models = list(search_path.glob('*.gguf'))
-        logger.debug(f"Looking for models in {search_path}: found {project_models}")
-        
-        for model in project_models:
-            target = MODELS_DIR / model.name
-            if not target.exists():
-                logger.info(f"Moving model {model} to {target}")
-                shutil.copy2(model, target)
-
-app = FastAPI(
-    title="Local AI Server",
-    description="A local server that provides OpenAI-compatible endpoints for Hugging Face models",
-    version="0.1.0",
-    docs_url="/docs",
-    redoc_url="/redoc"
-)
-
-# Add CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins for simplicity during development
-    allow_credentials=True,
-    allow_methods=["*"],  # Allow all methods
-    allow_headers=["*"],  # Allow all headers
-    expose_headers=["*"],
-    max_age=86400,  # Cache preflight requests for 24 hours
-)
-
-# Mount static files directory
-static_dir = PACKAGE_DIR / 'static'
+# Create static directory if it doesn't exist
+static_dir = Path(__file__).parent / 'static'
 static_dir.mkdir(exist_ok=True)
-app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
-# Mount API routes
-app.include_router(router)
+app = Flask(__name__, static_folder=str(static_dir), static_url_path='/static')
 
-@app.get("/", include_in_schema=False)
-async def serve_index():
+# Configure Swagger UI
+SWAGGER_URL = '/docs'
+API_URL = '/static/swagger.json'
+
+swaggerui_blueprint = get_swaggerui_blueprint(
+    SWAGGER_URL,
+    API_URL,
+    config={
+        'app_name': "Local AI Server"
+    }
+)
+app.register_blueprint(swaggerui_blueprint, url_prefix=SWAGGER_URL)
+
+# Set up all routes from endpoints.py
+setup_routes(app)
+
+@app.route('/')
+def index():
     """Serve the index.html page"""
-    if not (static_dir / "index.html").exists():
-        return RedirectResponse(url="/docs", status_code=status.HTTP_303_SEE_OTHER)
-    return FileResponse(static_dir / "index.html")
+    try:
+        return send_from_directory(str(static_dir), 'index.html')
+    except Exception as e:
+        logger.error(f"Error serving index.html: {e}")
+        return "Error loading page", 500
 
-@app.options("/{rest_of_path:path}")
-async def options_handler(rest_of_path: str):
-    """Global handler for OPTIONS requests to support CORS preflight requests"""
-    return JSONResponse(
-        status_code=status.HTTP_200_OK,
-        content={},
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With",
-            "Access-Control-Max-Age": "86400",
+@app.route('/static/swagger.json')
+def serve_swagger():
+    """Serve the Swagger JSON configuration"""
+    return jsonify({
+        "openapi": "3.0.0",
+        "info": {
+            "title": "Local AI Server",
+            "description": "A local server that provides OpenAI-compatible endpoints for language models",
+            "version": "1.0.0"
+        },
+        "paths": {
+            "/api/available-models": {
+                "get": {
+                    "summary": "Get list of available models for download",
+                    "responses": {"200": {"description": "List of available models"}}
+                }
+            },
+            "/api/models/all": {
+                "get": {
+                    "summary": "List all installed models",
+                    "responses": {"200": {"description": "List of all models"}}
+                }
+            },
+            "/api/download-model/{model_id}": {
+                "post": {
+                    "summary": "Download a model",
+                    "parameters": [
+                        {
+                            "name": "model_id",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "string"}
+                        }
+                    ],
+                    "responses": {
+                        "200": {"description": "Download stream"},
+                        "404": {"description": "Model not found"}
+                    }
+                }
+            },
+            "/api/models/{model_id}": {
+                "delete": {
+                    "summary": "Delete a model",
+                    "parameters": [
+                        {
+                            "name": "model_id",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "string"}
+                        }
+                    ],
+                    "responses": {
+                        "200": {"description": "Model deleted"},
+                        "404": {"description": "Model not found"}
+                    }
+                }
+            },
+            "/v1/models": {
+                "get": {
+                    "summary": "List installed models",
+                    "responses": {"200": {"description": "List of models"}}
+                }
+            },
+            "/v1/chat/completions": {
+                "post": {
+                    "summary": "Create chat completion",
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "model": {"type": "string"},
+                                        "messages": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "role": {"type": "string"},
+                                                    "content": {"type": "string"}
+                                                }
+                                            }
+                                        },
+                                        "stream": {"type": "boolean"},
+                                        "temperature": {"type": "number"}
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "responses": {
+                        "200": {"description": "Chat completion response"},
+                        "500": {"description": "Error"}
+                    }
+                }
+            }
         }
-    )
+    })
+
+# CORS configuration
+@app.after_request
+def after_request(response):
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', '*')
+    response.headers.add('Access-Control-Allow-Methods', '*')
+    response.headers.add('Access-Control-Expose-Headers', '*')
+    return response
 
 def get_ssl_context():
     """Create SSL context with proper certificate for HTTPS"""
@@ -157,10 +212,9 @@ def get_ssl_context():
         # Create and configure context
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         context.load_cert_chain(cert_path, key_path)
-        # Follow modern security best practices
         context.options |= ssl.OP_NO_TLSv1 | ssl.OP_NO_TLSv1_1  # Disable old TLS versions
+        # Remove HTTP/2 specific configuration
         context.set_ciphers('ECDHE+AESGCM:ECDHE+CHACHA20:DHE+AESGCM:DHE+CHACHA20')
-        context.set_alpn_protocols(['h2', 'http/1.1'])  # Support HTTP/2
         
         return context, str(cert_path), str(key_path)
     except Exception as e:
@@ -168,12 +222,12 @@ def get_ssl_context():
         raise
 
 if __name__ == "__main__":
-    import uvicorn
+    from waitress import serve
     try:
         # Note: only run HTTP server here for simplicity
         print(f"Starting server at http://localhost:{HTTP_PORT}")
         print(f"API documentation available at http://localhost:{HTTP_PORT}/docs")
-        uvicorn.run(
+        serve(
             app, 
             host="0.0.0.0", 
             port=HTTP_PORT

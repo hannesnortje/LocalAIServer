@@ -114,7 +114,6 @@ Models are downloaded only once and reused in subsequent runs.
 
 Once the server is running, you can access:
 - Interactive API documentation at http://localhost:5000/docs
-- Alternative documentation at http://localhost:5000/redoc
 
 ## Supported Endpoints
 

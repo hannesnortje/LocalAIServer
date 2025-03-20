@@ -4,15 +4,14 @@ from pathlib import Path
 from typing import List, Dict, Optional
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from llama_cpp import Llama
-from fastapi import HTTPException, status
-from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
-class ModelStatus(BaseModel):
-    loaded: bool
-    model_type: Optional[str] = None
-    context_window: Optional[int] = None
+class ModelStatus:
+    def __init__(self, loaded: bool, model_type: Optional[str] = None, context_window: Optional[int] = None):
+        self.loaded = loaded
+        self.model_type = model_type
+        self.context_window = context_window
 
 class ModelManager:
     def __init__(self, models_dir: Path):
@@ -101,16 +100,8 @@ class ModelManager:
                 )
         return models
 
-    async def generate_response(self, prompt: str, **kwargs) -> str:
-        """Generate a response to the given prompt using the loaded model.
-        
-        Args:
-            prompt: The input prompt
-            **kwargs: Model-specific parameters like max_tokens, temperature, etc.
-        
-        Returns:
-            The generated text response
-        """
+    def generate_response(self, prompt: str, **kwargs) -> str:
+        """Generate a response to the given prompt using the loaded model."""
         try:
             # Set default parameters if not provided
             max_tokens = kwargs.get('max_tokens', 100)
@@ -118,7 +109,7 @@ class ModelManager:
             
             if self.model_type == 'gguf':
                 # Calculate available tokens
-                estimated_prompt_tokens = len(prompt.split())  # Rough estimation
+                estimated_prompt_tokens = len(prompt.split())
                 if estimated_prompt_tokens + max_tokens > self.context_window:
                     max_tokens = max(0, self.context_window - estimated_prompt_tokens)
                     logger.warning(f"Adjusted max_tokens to {max_tokens} due to context window limits")
@@ -160,17 +151,68 @@ class ModelManager:
         
         except ValueError as e:
             if "context window" in str(e):
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Input too long. Maximum context window is {self.context_window} tokens."
-                )
+                raise RuntimeError(f"Input too long. Maximum context window is {self.context_window} tokens.")
             raise e
         except Exception as e:
             logger.error(f"Error generating response: {e}", exc_info=True)
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=str(e)
-            )
+            raise RuntimeError(str(e))
+
+    def generate(self, prompt, **kwargs):
+        """Generate a response from the current model"""
+        if not self.model:
+            raise RuntimeError("No model loaded")
+        
+        if isinstance(self.model, Llama):
+            # For Llama models
+            # Only include parameters that were explicitly provided
+            completion_params = {
+                'prompt': prompt,
+                'echo': False
+            }
+            if 'max_tokens' in kwargs:
+                completion_params['max_tokens'] = kwargs['max_tokens']
+            if 'temperature' in kwargs:
+                completion_params['temperature'] = kwargs['temperature']
+            if 'stop' in kwargs:
+                completion_params['stop'] = kwargs['stop']
+            if 'top_p' in kwargs:
+                completion_params['top_p'] = kwargs['top_p']
+            if 'frequency_penalty' in kwargs:
+                completion_params['frequency_penalty'] = kwargs['frequency_penalty']
+            if 'presence_penalty' in kwargs:
+                completion_params['presence_penalty'] = kwargs['presence_penalty']
+
+            response = self.model.create_completion(**completion_params)
+            return response['choices'][0]['text'].strip()
+        else:
+            # For Transformers models
+            inputs = self.tokenizer(prompt, return_tensors="pt", padding=True)
+            generate_params = {}
+            
+            if 'max_tokens' in kwargs:
+                generate_params['max_length'] = inputs["input_ids"].shape[1] + kwargs['max_tokens']
+            if 'temperature' in kwargs:
+                generate_params['temperature'] = kwargs['temperature']
+                generate_params['do_sample'] = True
+            if 'top_p' in kwargs:
+                generate_params['top_p'] = kwargs['top_p']
+                generate_params['do_sample'] = True
+
+            # Always include pad_token_id
+            generate_params['pad_token_id'] = self.tokenizer.eos_token_id
+
+            outputs = self.model.generate(inputs["input_ids"], **generate_params)
+            return self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+    
+    def create_chat_completion(self, messages, **kwargs):
+        """Create a chat completion response"""
+        prompt = "\n".join(f"{msg['role']}: {msg['content']}" for msg in messages)
+        response_text = self.generate(prompt, **kwargs)
+        
+        return {
+            "role": "assistant",
+            "content": response_text
+        }
 
 # Create global instance
 model_manager = ModelManager(Path(__file__).parent / 'models')
