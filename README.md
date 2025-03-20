@@ -132,8 +132,20 @@ curl -X POST http://localhost:5000/api/search \
 
 ### Response History
 
-Enable response history with the `ENABLE_RESPONSE_HISTORY=true` environment variable. This will store all queries and responses for future context.
+Response history is enabled by default. All queries and responses are automatically stored for future context. 
 
+To disable response history:
+
+```bash
+# Disable temporarily for a single session
+ENABLE_RESPONSE_HISTORY=false local-ai-server start
+
+# Or disable permanently by adding to your shell configuration:
+echo 'export ENABLE_RESPONSE_HISTORY=false' >> ~/.bashrc  # For bash
+echo 'export ENABLE_RESPONSE_HISTORY=false' >> ~/.zshrc   # For zsh
+```
+
+Available history endpoints:
 ```bash
 # Search history
 curl "http://localhost:5000/api/history?query=previous%20search&limit=5"
@@ -145,6 +157,9 @@ curl -X POST http://localhost:5000/api/history/clean \
 
 # Clear all history
 curl -X POST http://localhost:5000/api/history/clear
+
+# Check history status
+curl http://localhost:5000/api/history/status
 ```
 
 ### OpenAI Compatibility
@@ -284,4 +299,3 @@ Logs are stored in `local_ai_server.log` in the current directory.
 ## License
 
 MIT
-```

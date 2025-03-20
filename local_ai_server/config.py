@@ -51,7 +51,7 @@ VECTOR_SIZE = 384  # Default for all-MiniLM-L6-v2
 EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 
 # Response history configuration
-ENABLE_RESPONSE_HISTORY = os.getenv('ENABLE_RESPONSE_HISTORY', 'false').lower() == 'true'
+ENABLE_RESPONSE_HISTORY = True  # Changed from os.getenv(...) to always be True
 RESPONSE_HISTORY_COLLECTION = os.getenv('RESPONSE_HISTORY_COLLECTION', 'response_history')
 MAX_HISTORY_ITEMS = int(os.getenv('MAX_HISTORY_ITEMS', 5))
 HISTORY_RETENTION_DAYS = int(os.getenv('HISTORY_RETENTION_DAYS', 30))  # How long to keep history
