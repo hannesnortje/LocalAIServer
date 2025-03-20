@@ -1,0 +1,3 @@
+include local_ai_server/static/*
+include local_ai_server/models/.gitkeep
+include local_ai_server/ssl/.gitkeep

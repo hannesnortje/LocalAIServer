@@ -1,35 +1,27 @@
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "local_ai_server"
 version = "0.1.0"
-description = "Local AI server with OpenAI-compatible endpoints"
-requires-python = ">=3.8"
+description = "A local server that provides OpenAI-compatible endpoints for language models"
 authors = [
-    {name = "Your Name", email = "your.email@example.com"},
+    {name = "Local AI Server Contributors"}
 ]
+license = {text = "MIT"}
+requires-python = ">=3.8"
 dependencies = [
-    "fastapi>=0.68.0",
-    "uvicorn>=0.15.0",
     "transformers>=4.0.0",
     "torch>=2.0.0",
-    "pydantic>=1.8.0",
     "llama-cpp-python[server]==0.2.27",
     "pyOpenSSL>=23.0.0",
     "cryptography>=41.0.0",
-    "aiohttp>=3.8.0"
-]
-classifiers = [
-    "Development Status :: 3 - Alpha",
-    "Environment :: Console",
-    "Intended Audience :: Developers",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
+    "flask>=2.0.0",
+    "werkzeug>=2.0.0",
+    "flask-swagger-ui>=3.36.0",
+    "requests>=2.25.0",
+    "waitress>=2.1.0"
 ]
 
 [project.scripts]
