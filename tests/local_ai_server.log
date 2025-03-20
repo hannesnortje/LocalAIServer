@@ -63,3 +63,142 @@
 2025-03-20 13:42:18,545 - local_ai_server.history_manager - INFO - Response history manager initialized (enabled: True)
 2025-03-20 13:42:18,555 - local_ai_server.history_manager - INFO - Created collection: response_history
 2025-03-20 13:42:18,556 - local_ai_server.history_manager - INFO - Deleted all response history
+2025-03-20 14:52:46,586 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 14:52:46,589 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 14:52:49,094 - local_ai_server.history_manager - INFO - Created collection: response_history
+2025-03-20 14:52:49,094 - local_ai_server.history_manager - INFO - Response history manager initialized (enabled: True)
+2025-03-20 14:52:49,103 - local_ai_server.history_manager - INFO - Created collection: response_history
+2025-03-20 14:52:49,103 - local_ai_server.history_manager - INFO - Deleted all response history
+2025-03-20 14:52:49,181 - local_ai_server.history_manager - INFO - Cleaned up 1 old history entries
+2025-03-20 14:52:49,209 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 14:52:49,210 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 14:52:52,555 - local_ai_server.history_manager - INFO - Response history manager initialized (enabled: True)
+2025-03-20 14:52:52,565 - local_ai_server.history_manager - INFO - Created collection: response_history
+2025-03-20 14:52:52,565 - local_ai_server.history_manager - INFO - Deleted all response history
+2025-03-20 14:52:52,642 - local_ai_server.history_manager - INFO - Created collection: response_history
+2025-03-20 14:52:52,642 - local_ai_server.history_manager - INFO - Deleted all response history
+2025-03-20 14:52:52,669 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 14:52:52,670 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 14:52:55,990 - local_ai_server.history_manager - INFO - Response history manager initialized (enabled: True)
+2025-03-20 14:52:56,001 - local_ai_server.history_manager - INFO - Created collection: response_history
+2025-03-20 14:52:56,001 - local_ai_server.history_manager - INFO - Deleted all response history
+2025-03-20 14:52:56,029 - local_ai_server.vector_store - ERROR - Failed to initialize vector store: Storage folder /tmp/history_test_jutngpwz is already accessed by another instance of Qdrant client. If you require concurrent access, use Qdrant server instead.
+2025-03-20 14:52:56,042 - local_ai_server.history_manager - ERROR - Failed to initialize history manager: Storage folder /tmp/history_test_jutngpwz is already accessed by another instance of Qdrant client. If you require concurrent access, use Qdrant server instead.
+2025-03-20 14:55:29,250 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 14:55:29,251 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 14:55:31,266 - local_ai_server.history_manager - INFO - Created collection: response_history
+2025-03-20 14:55:31,266 - local_ai_server.history_manager - INFO - Response history manager initialized (enabled: True)
+2025-03-20 14:55:31,273 - local_ai_server.history_manager - INFO - Created collection: response_history
+2025-03-20 14:55:31,273 - local_ai_server.history_manager - INFO - Deleted all response history
+2025-03-20 14:55:31,344 - local_ai_server.history_manager - INFO - Cleaned up 1 old history entries
+2025-03-20 14:55:31,462 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 14:55:31,463 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 14:55:33,464 - local_ai_server.history_manager - INFO - Response history manager initialized (enabled: True)
+2025-03-20 14:55:33,479 - local_ai_server.history_manager - INFO - Created collection: response_history
+2025-03-20 14:55:33,479 - local_ai_server.history_manager - INFO - Deleted all response history
+2025-03-20 14:55:33,554 - local_ai_server.history_manager - INFO - Created collection: response_history
+2025-03-20 14:55:33,555 - local_ai_server.history_manager - INFO - Deleted all response history
+2025-03-20 14:55:33,677 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 14:55:33,678 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 14:55:35,515 - local_ai_server.history_manager - INFO - Response history manager initialized (enabled: True)
+2025-03-20 14:55:35,525 - local_ai_server.history_manager - INFO - Created collection: response_history
+2025-03-20 14:55:35,525 - local_ai_server.history_manager - INFO - Deleted all response history
+2025-03-20 14:55:35,551 - local_ai_server.vector_store - ERROR - Failed to initialize vector store: Storage folder /tmp/history_test_g90c27tt is already accessed by another instance of Qdrant client. If you require concurrent access, use Qdrant server instead.
+2025-03-20 14:55:35,660 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 14:55:35,661 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 14:55:37,598 - local_ai_server.history_manager - INFO - Response history manager initialized (enabled: True)
+2025-03-20 14:55:37,608 - local_ai_server.history_manager - INFO - Created collection: response_history
+2025-03-20 14:55:37,609 - local_ai_server.history_manager - INFO - Deleted all response history
+2025-03-20 14:59:09,940 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 14:59:09,940 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 14:59:11,798 - local_ai_server.history_manager - INFO - Created collection: response_history
+2025-03-20 14:59:11,798 - local_ai_server.history_manager - INFO - Response history manager initialized (enabled: True)
+2025-03-20 14:59:11,807 - local_ai_server.history_manager - INFO - Created collection: response_history
+2025-03-20 14:59:11,808 - local_ai_server.history_manager - INFO - Deleted all response history
+2025-03-20 14:59:11,880 - local_ai_server.history_manager - INFO - Cleaned up 1 old history entries
+2025-03-20 14:59:12,010 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 14:59:12,010 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 14:59:13,558 - local_ai_server.history_manager - INFO - Response history manager initialized (enabled: True)
+2025-03-20 14:59:13,576 - local_ai_server.history_manager - INFO - Created collection: response_history
+2025-03-20 14:59:13,576 - local_ai_server.history_manager - INFO - Deleted all response history
+2025-03-20 14:59:13,645 - local_ai_server.history_manager - INFO - Created collection: response_history
+2025-03-20 14:59:13,646 - local_ai_server.history_manager - INFO - Deleted all response history
+2025-03-20 14:59:13,773 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 14:59:13,773 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 14:59:19,669 - local_ai_server.history_manager - INFO - Response history manager initialized (enabled: True)
+2025-03-20 14:59:19,679 - local_ai_server.history_manager - INFO - Created collection: response_history
+2025-03-20 14:59:19,679 - local_ai_server.history_manager - INFO - Deleted all response history
+2025-03-20 14:59:19,705 - local_ai_server.vector_store - ERROR - Failed to initialize vector store: Storage folder /tmp/history_test_ek7uetrp is already accessed by another instance of Qdrant client. If you require concurrent access, use Qdrant server instead.
+2025-03-20 14:59:19,815 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 14:59:19,815 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 14:59:24,927 - local_ai_server.history_manager - INFO - Response history manager initialized (enabled: True)
+2025-03-20 14:59:24,938 - local_ai_server.history_manager - INFO - Created collection: response_history
+2025-03-20 14:59:24,938 - local_ai_server.history_manager - INFO - Deleted all response history
+2025-03-20 15:01:12,962 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 15:01:12,963 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 15:01:15,294 - local_ai_server.history_manager - INFO - Created collection: response_history
+2025-03-20 15:01:15,294 - local_ai_server.history_manager - INFO - Response history manager initialized (enabled: True)
+2025-03-20 15:01:15,305 - local_ai_server.history_manager - INFO - Created collection: response_history
+2025-03-20 15:01:15,305 - local_ai_server.history_manager - INFO - Deleted all response history
+2025-03-20 15:01:15,379 - local_ai_server.history_manager - INFO - Cleaned up 1 old history entries
+2025-03-20 15:01:15,503 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 15:01:15,503 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 15:01:17,944 - local_ai_server.history_manager - INFO - Response history manager initialized (enabled: True)
+2025-03-20 15:01:17,955 - local_ai_server.history_manager - INFO - Created collection: response_history
+2025-03-20 15:01:17,955 - local_ai_server.history_manager - INFO - Deleted all response history
+2025-03-20 15:01:18,024 - local_ai_server.history_manager - INFO - Created collection: response_history
+2025-03-20 15:01:18,024 - local_ai_server.history_manager - INFO - Deleted all response history
+2025-03-20 15:01:18,151 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 15:01:18,151 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 15:01:20,194 - local_ai_server.history_manager - INFO - Response history manager initialized (enabled: True)
+2025-03-20 15:01:20,208 - local_ai_server.history_manager - INFO - Created collection: response_history
+2025-03-20 15:01:20,208 - local_ai_server.history_manager - INFO - Deleted all response history
+2025-03-20 15:01:20,236 - local_ai_server.vector_store - ERROR - Failed to initialize vector store: Storage folder /tmp/history_test_ihwdd6sm is already accessed by another instance of Qdrant client. If you require concurrent access, use Qdrant server instead.
+2025-03-20 15:01:20,347 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 15:01:20,347 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 15:01:21,955 - local_ai_server.history_manager - INFO - Response history manager initialized (enabled: True)
+2025-03-20 15:01:21,966 - local_ai_server.history_manager - INFO - Created collection: response_history
+2025-03-20 15:01:21,966 - local_ai_server.history_manager - INFO - Deleted all response history
+2025-03-20 15:04:40,314 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 15:04:40,314 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 15:04:42,451 - local_ai_server.history_manager - INFO - Created collection: response_history
+2025-03-20 15:04:42,451 - local_ai_server.history_manager - INFO - Response history manager initialized (enabled: True)
+2025-03-20 15:04:42,460 - local_ai_server.history_manager - INFO - Created collection: response_history
+2025-03-20 15:04:42,460 - local_ai_server.history_manager - INFO - Deleted all response history
+2025-03-20 15:04:42,636 - local_ai_server.history_manager - INFO - Cleaned up 1 old history entries
+2025-03-20 15:04:42,781 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 15:04:42,781 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 15:04:45,189 - local_ai_server.history_manager - INFO - Response history manager initialized (enabled: True)
+2025-03-20 15:04:45,203 - local_ai_server.history_manager - INFO - Created collection: response_history
+2025-03-20 15:04:45,204 - local_ai_server.history_manager - INFO - Deleted all response history
+2025-03-20 15:04:45,276 - local_ai_server.history_manager - INFO - Created collection: response_history
+2025-03-20 15:04:45,277 - local_ai_server.history_manager - INFO - Deleted all response history
+2025-03-20 15:04:45,396 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 15:04:45,396 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 15:04:46,965 - local_ai_server.history_manager - INFO - Response history manager initialized (enabled: True)
+2025-03-20 15:04:46,976 - local_ai_server.history_manager - INFO - Created collection: response_history
+2025-03-20 15:04:46,976 - local_ai_server.history_manager - INFO - Deleted all response history
+2025-03-20 15:04:47,090 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 15:04:47,090 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 15:04:49,198 - local_ai_server.history_manager - INFO - Response history manager initialized (enabled: True)
+2025-03-20 15:04:49,209 - local_ai_server.history_manager - INFO - Created collection: response_history
+2025-03-20 15:04:49,209 - local_ai_server.history_manager - INFO - Deleted all response history
+2025-03-20 15:06:57,738 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 15:06:57,739 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 15:07:05,988 - local_ai_server.vector_store - INFO - Created collection: documents
+2025-03-20 15:07:06,123 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 15:07:06,123 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 15:07:07,845 - local_ai_server.history_manager - INFO - Response history manager initialized (enabled: True)
+2025-03-20 15:07:45,916 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 15:07:45,916 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 15:07:49,005 - local_ai_server.vector_store - INFO - Created collection: documents
+2025-03-20 15:07:49,692 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 15:07:49,692 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 15:07:51,305 - local_ai_server.vector_store - INFO - Created collection: documents
+2025-03-20 15:07:51,979 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 15:07:51,979 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 15:07:53,634 - local_ai_server.vector_store - INFO - Created collection: documents
+2025-03-20 15:07:54,776 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 15:07:54,776 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 15:08:24,309 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 15:08:24,310 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2

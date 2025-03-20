@@ -149,6 +149,20 @@ class VectorStore:
             )
         )
 
+    def close(self):
+        """Close the Qdrant client connection"""
+        if hasattr(self, 'client'):
+            self.client.close()
+            delattr(self, 'client')
+        self.initialized = False
+
+    def __del__(self):
+        """Cleanup when instance is deleted"""
+        try:
+            self.close()
+        except:
+            pass
+
 # Don't create instance on import
 vector_store = None
 

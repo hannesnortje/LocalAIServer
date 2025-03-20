@@ -10,11 +10,9 @@ from .config import DEFAULT_MAX_TOKENS, DEFAULT_TEMPERATURE, ENABLE_RESPONSE_HIS
 logger = logging.getLogger(__name__)
 
 class RAG:
-    """Retrieval-Augmented Generation utility.
+    """Retrieval-Augmented Generation utility."""
     
-    This class combines document retrieval from the vector store with
-    language model generation to create context-enhanced responses.
-    """
+    vector_store = None  # Add class variable to store vector store instance
     
     @staticmethod
     def format_retrieved_documents(docs: List[Dict[str, Any]]) -> str:
@@ -96,8 +94,8 @@ class RAG:
         if use_history is None:
             use_history = ENABLE_RESPONSE_HISTORY
         
-        # Get vector store
-        vector_store = get_vector_store()
+        # Use class vector store if set, otherwise get new instance
+        vector_store = RAG.vector_store or get_vector_store()
         
         # Set search parameters
         k = search_params.get('limit', 4)
@@ -144,7 +142,7 @@ USER QUESTION: {query}
 Please provide a comprehensive answer based on the information in the documents and previous conversations. If the documents don't contain relevant information, state that you don't have enough information to answer properly.
 
 ANSWER:"""
-            
+
             # Set generation parameters
             gen_params = {
                 "temperature": generation_params.get("temperature", DEFAULT_TEMPERATURE),

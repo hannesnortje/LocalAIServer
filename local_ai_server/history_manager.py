@@ -307,21 +307,34 @@ class ResponseHistoryManager:
             logger.error(f"Error deleting all history: {e}")
             return False
 
+    def close(self):
+        """Close the Qdrant client connection"""
+        if hasattr(self, 'client'):
+            self.client.close()
+            delattr(self, 'client')
+        self.initialized = False
+
+    def __del__(self):
+        """Cleanup when instance is deleted"""
+        try:
+            self.close()
+        except:
+            pass
+
 # Create a lazy-loading global instance instead of initializing immediately
 response_history = ResponseHistoryManager()
 
 def get_response_history(storage_path=None):
-    """Get or create response history manager instance.
-    
-    Args:
-        storage_path: Optional custom storage path
-        
-    Returns:
-        ResponseHistoryManager instance
-    """
+    """Get or create response history manager instance."""
     global response_history
     if storage_path:
         # For testing - create a new instance with custom path
+        # Close existing instance if any
+        if response_history and hasattr(response_history, 'client'):
+            try:
+                response_history.close()
+            except:
+                pass
         return ResponseHistoryManager(storage_path=storage_path)
     
     # Initialize if needed
