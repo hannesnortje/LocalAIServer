@@ -335,6 +335,120 @@ def serve_swagger():
                         "500": {"description": "Server error"}
                     }
                 }
+            },
+            "/api/history": {
+                "get": {
+                    "summary": "Search response history",
+                    "description": "Search for similar previous responses",
+                    "parameters": [
+                        {
+                            "name": "query",
+                            "in": "query",
+                            "description": "Search query",
+                            "schema": {"type": "string"}
+                        },
+                        {
+                            "name": "limit",
+                            "in": "query",
+                            "description": "Maximum number of results",
+                            "schema": {"type": "integer", "default": 10}
+                        },
+                        {
+                            "name": "min_score",
+                            "in": "query",
+                            "description": "Minimum similarity score (0-1)",
+                            "schema": {"type": "number", "default": 0.7}
+                        }
+                    ],
+                    "responses": {
+                        "200": {"description": "Successful response"},
+                        "400": {"description": "History disabled"},
+                        "500": {"description": "Server error"}
+                    }
+                }
+            },
+            "/api/history/clean": {
+                "post": {
+                    "summary": "Clean old history entries",
+                    "description": "Remove entries older than specified days",
+                    "requestBody": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "days": {"type": "integer", "default": 30}
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "responses": {
+                        "200": {"description": "Successful response"},
+                        "400": {"description": "History disabled"},
+                        "500": {"description": "Server error"}
+                    }
+                }
+            },
+            "/api/history/clear": {
+                "post": {
+                    "summary": "Clear all history",
+                    "description": "Delete all response history",
+                    "responses": {
+                        "200": {"description": "Successful response"},
+                        "400": {"description": "History disabled"},
+                        "500": {"description": "Server error"}
+                    }
+                }
+            },
+            "/api/history/status": {
+                "get": {
+                    "summary": "Get history status",
+                    "description": "Check if history is enabled",
+                    "responses": {
+                        "200": {"description": "Successful response"}
+                    }
+                }
+            },
+            "/api/rag": {
+                "post": {
+                    "summary": "RAG Completion",
+                    "description": "Generate responses using Retrieval-Augmented Generation",
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "query": {"type": "string", "description": "User question to answer"},
+                                        "model": {"type": "string", "description": "Model ID to use for generation"},
+                                        "use_history": {"type": "boolean", "description": "Whether to use response history"},
+                                        "search_params": {
+                                            "type": "object",
+                                            "properties": {
+                                                "limit": {"type": "integer", "default": 4, "description": "Number of documents to retrieve"},
+                                                "filter": {"type": "object", "description": "Filter criteria for document search"},
+                                                "history_limit": {"type": "integer", "default": 3, "description": "Number of history items to include"},
+                                                "history_filter": {"type": "object", "description": "Filter criteria for history search"}
+                                            }
+                                        },
+                                        "temperature": {"type": "number", "description": "Sampling temperature"},
+                                        "max_tokens": {"type": "integer", "description": "Maximum tokens to generate"},
+                                        "stream": {"type": "boolean", "description": "Stream the response"},
+                                        "top_p": {"type": "number", "description": "Nucleus sampling parameter"}
+                                    },
+                                    "required": ["query", "model"]
+                                }
+                            }
+                        }
+                    },
+                    "responses": {
+                        "200": {"description": "RAG completion response"},
+                        "400": {"description": "Missing required parameters"},
+                        "500": {"description": "Server error"}
+                    }
+                }
             }
         }
     })

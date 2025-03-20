@@ -1,120 +1,287 @@
 # Local AI Server
 
-A local server that provides OpenAI-compatible endpoints for Hugging Face models.
+A self-hosted server that provides OpenAI-compatible APIs for running local language models with RAG capabilities.
+
+## Features
+
+- ✅ OpenAI-compatible API endpoints (drop-in replacement for applications)
+- ✅ Support for GGUF format models (Llama, Mistral, Phi, etc.)
+- ✅ Document storage with vector embeddings
+- ✅ Retrieval-Augmented Generation (RAG)
+- ✅ Response history and conversational memory
+- ✅ Swagger UI documentation
+- ✅ Easy installation with pipx
+- ✅ HTTP and HTTPS support with automatic certificate generation
 
 ## Installation
 
-### System Dependencies
-For Ubuntu/Debian:
-```bash
-sudo apt-get install python3-dev build-essential
-```
+### Prerequisites
 
-### Using pipx (Recommended)
-```bash
-# Install from local directory
-pipx install .
+- Python 3.8 or higher
+- pip or pipx (recommended)
 
-# Or install directly from GitHub
+### Install with pipx (recommended)
+
+```bash
 pipx install git+https://github.com/hannesnortje/LocalAIServer.git
 ```
 
-### Installing/Reinstalling from GitHub
+This will install the package in an isolated environment and make the CLI command available globally.
+
+### Install with pip
+
 ```bash
-# Remove existing installation (if any)
-pipx uninstall local-ai-server
-
-# Install fresh copy
-pipx install git+https://github.com/hannesnortje/LocalAIServer.git
-
-# Verify installation
-local-ai-server --version
+pip install git+https://github.com/hannesnortje/LocalAIServer.git
 ```
 
-### Development Installation
+### GPU Support (optional)
 
-1. Create a virtual environment:
+For GPU acceleration, install with CUDA support:
+
 ```bash
+pip install "git+https://github.com/hannesnortje/LocalAIServer.git#egg=local_ai_server[cuda]"
+```
+
+## Quick Start
+
+### Start the server
+
+```bash
+local-ai-server start
+```
+
+The server will start on:
+- HTTP: http://localhost:5000
+- HTTPS: https://localhost:5443
+- API Documentation: http://localhost:5000/docs
+
+### Download a model
+
+1. Open http://localhost:5000 in your browser
+2. Browse available models
+3. Click "Download" on a model of your choice (e.g., Phi-2)
+
+Alternatively, use the API:
+
+```bash
+curl -X POST http://localhost:5000/api/download-model/phi-2.Q4_K_M.gguf
+```
+
+### Add Documents
+
+Add documents to the vector store for RAG:
+
+```bash
+curl -X POST http://localhost:5000/api/documents \
+  -H "Content-Type: application/json" \
+  -d '{
+    "texts": ["This is a sample document about artificial intelligence.", "Another document about machine learning."],
+    "metadata": [{"source": "Sample 1"}, {"source": "Sample 2"}]
+  }'
+```
+
+### Run a chat completion
+
+```bash
+curl -X POST http://localhost:5000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "phi-2.Q4_K_M.gguf",
+    "messages": [{"role": "user", "content": "Hello, how are you?"}]
+  }'
+```
+
+### Run RAG (Retrieval-Augmented Generation)
+
+Use the RAG endpoint to answer questions based on your documents:
+
+```bash
+curl -X POST http://localhost:5000/api/rag \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "What is artificial intelligence?",
+    "model": "phi-2.Q4_K_M.gguf",
+    "use_history": true
+  }'
+```
+
+## Core Features
+
+### Vector Document Storage
+
+Store and retrieve documents with metadata:
+
+```bash
+# Add documents
+curl -X POST http://localhost:5000/api/documents \
+  -H "Content-Type: application/json" \
+  -d '{
+    "texts": ["Document content goes here"],
+    "metadata": [{"source": "Book", "author": "John Doe"}]
+  }'
+
+# Search documents
+curl -X POST http://localhost:5000/api/search \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "search term",
+    "limit": 5,
+    "filter": {"author": "John Doe"}
+  }'
+```
+
+### Response History
+
+Enable response history with the `ENABLE_RESPONSE_HISTORY=true` environment variable. This will store all queries and responses for future context.
+
+```bash
+# Search history
+curl "http://localhost:5000/api/history?query=previous%20search&limit=5"
+
+# Clean old history
+curl -X POST http://localhost:5000/api/history/clean \
+  -H "Content-Type: application/json" \
+  -d '{"days": 30}'
+
+# Clear all history
+curl -X POST http://localhost:5000/api/history/clear
+```
+
+### OpenAI Compatibility
+
+LocalAIServer provides drop-in replacement for OpenAI's API:
+
+```python
+import openai
+
+# Configure to use local server
+openai.api_base = "http://localhost:5000/v1"
+openai.api_key = "not-needed"
+
+# Use just like OpenAI's SDK
+response = openai.ChatCompletion.create(
+    model="phi-2.Q4_K_M.gguf",
+    messages=[
+        {"role": "user", "content": "Hello, how are you?"}
+    ]
+)
+print(response.choices[0].message.content)
+```
+
+## API Reference
+
+All API endpoints are documented via Swagger UI at http://localhost:5000/docs when the server is running.
+
+### Key Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/v1/chat/completions` | POST | OpenAI-compatible chat completion |
+| `/v1/completions` | POST | OpenAI-compatible text completion |
+| `/v1/embeddings` | POST | OpenAI-compatible text embeddings |
+| `/v1/models` | GET | List available models |
+| `/api/rag` | POST | Retrieval-Augmented Generation |
+| `/api/documents` | POST | Add documents to vector store |
+| `/api/search` | POST | Search documents |
+| `/api/history` | GET | Search response history |
+
+## Configuration
+
+LocalAIServer can be configured through environment variables:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `HTTP_PORT` | 5000 | HTTP server port |
+| `HTTPS_PORT` | 5443 | HTTPS server port |
+| `QDRANT_PATH` | ./storage/vectors | Path for vector database storage |
+| `QDRANT_COLLECTION` | documents | Collection name in vector DB |
+| `ENABLE_RESPONSE_HISTORY` | false | Enable/disable response history |
+| `MAX_HISTORY_ITEMS` | 5 | Max history items per query |
+| `HISTORY_RETENTION_DAYS` | 30 | Days to retain history |
+
+## Advanced Usage
+
+### Running with Docker
+
+```bash
+docker run -p 5000:5000 -p 5443:5443 -v ./models:/app/models -v ./storage:/app/storage hannesnortje/local-ai-server
+```
+
+### Using Custom Models
+
+To use your own models, place the model files in the `models` directory:
+
+```bash
+cp path/to/your/model.gguf ~/.local/share/local_ai_server/models/
+```
+
+### Integration with LangChain
+
+```python
+from langchain.chat_models import ChatOpenAI
+from langchain.schema import HumanMessage
+
+chat = ChatOpenAI(
+    model="phi-2.Q4_K_M.gguf",
+    openai_api_base="http://localhost:5000/v1",
+    openai_api_key="not-needed"
+)
+
+messages = [HumanMessage(content="Hello, how are you?")]
+response = chat(messages)
+print(response.content)
+```
+
+## Development
+
+### Setting Up Development Environment
+
+```bash
+git clone https://github.com/hannesnortje/LocalAIServer.git
+cd LocalAIServer
 python -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+pip install -e ".[dev]"
 ```
 
-2. Install dependencies:
+### Running Tests
+
 ```bash
-# For CPU only
-pip install -r requirements.txt
-
-# For CUDA support (recommended for GGUF models)
-CMAKE_ARGS="-DLLAMA_CUBLAS=on" pip install llama-cpp-python[server]==0.2.27
-pip install -r requirements.txt
+python -m pytest
 ```
 
-3. Install the package in development mode:
-```bash
-pip install -e .
+### Project Structure
+
+- `local_ai_server/`: Main package
+  - `__main__.py`: Entry point
+  - `server.py`: Flask server setup
+  - `endpoints.py`: API routes
+  - `model_manager.py`: Model loading and inference
+  - `vector_store.py`: Vector database (Qdrant)
+  - `rag.py`: Retrieval-Augmented Generation
+  - `history_manager.py`: Response history
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Port already in use**
+   - Use different ports: `HTTP_PORT=8000 HTTPS_PORT=8443 local-ai-server start`
+
+2. **Memory issues with large models**
+   - Use smaller quantized models (e.g., Q4_K_M variants)
+   - Increase system swap space
+   - Add CUDA support for GPU acceleration
+
+3. **SSL Certificate Warnings**
+   - The server generates self-signed certificates
+   - Add exception in your browser or use HTTP for local development
+
+### Logs
+
+Logs are stored in `local_ai_server.log` in the current directory.
+
+## License
+
+MIT
 ```
-
-## Usage
-
-1. Start the server:
-```bash
-# Use default ports (5000 for HTTP, 5443 for HTTPS)
-local-ai-server
-
-# Or configure custom ports
-export LOCAL_AI_HTTP_PORT=6000
-export LOCAL_AI_HTTPS_PORT=6443
-local-ai-server
-```
-
-The server runs on both HTTP and HTTPS:
-- HTTP: http://localhost:5000 (default)
-- HTTPS: https://localhost:5443 (default, using self-signed certificate)
-
-> Note: When using self-signed certificates, you might need to accept the security warning in your browser.
-
-2. Make requests to the OpenAI-compatible endpoint:
-```bash
-# Using HTTP
-curl http://localhost:5000/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "gpt2",
-    "messages": [{"role": "user", "content": "Hello, how are you?"}],
-    "temperature": 0.7,
-    "max_tokens": 100
-  }'
-
-# Using HTTPS
-curl -k https://localhost:5443/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "gpt2",
-    "messages": [{"role": "user", "content": "Hello, how are you?"}],
-    "temperature": 0.7,
-    "max_tokens": 100
-  }'
-```
-
-## Model Storage
-
-Models are automatically downloaded and stored in:
-- Default location: `~/.local_ai_server/models/`
-- Custom location: Set environment variable `LOCAL_AI_MODELS_DIR`
-
-Example with custom model directory:
-```bash
-export LOCAL_AI_MODELS_DIR="/path/to/your/models"
-local-ai-server
-```
-
-Models are downloaded only once and reused in subsequent runs.
-
-## API Documentation
-
-Once the server is running, you can access:
-- Interactive API documentation at http://localhost:5000/docs
-
-## Supported Endpoints
-
-- POST /v1/chat/completions - Compatible with OpenAI's chat completion endpoint

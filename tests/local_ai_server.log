@@ -38,3 +38,28 @@
 2025-03-20 12:40:19,173 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
 2025-03-20 12:40:19,173 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
 2025-03-20 12:40:20,881 - local_ai_server.vector_store - INFO - Created collection: documents
+2025-03-20 13:40:02,112 - local_ai_server.history_manager - ERROR - Failed to initialize history manager: name 'Path' is not defined
+2025-03-20 13:40:02,115 - local_ai_server.history_manager - ERROR - Failed to initialize history manager: name 'Path' is not defined
+2025-03-20 13:40:02,117 - local_ai_server.history_manager - ERROR - Failed to initialize history manager: name 'Path' is not defined
+2025-03-20 13:40:47,894 - local_ai_server.history_manager - ERROR - Failed to initialize history manager: name 'Path' is not defined
+2025-03-20 13:40:47,896 - local_ai_server.history_manager - ERROR - Failed to initialize history manager: name 'Path' is not defined
+2025-03-20 13:40:47,897 - local_ai_server.history_manager - ERROR - Failed to initialize history manager: name 'Path' is not defined
+2025-03-20 13:42:12,315 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 13:42:12,316 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 13:42:14,915 - local_ai_server.history_manager - INFO - Created collection: response_history
+2025-03-20 13:42:14,915 - local_ai_server.history_manager - INFO - Response history manager initialized (enabled: True)
+2025-03-20 13:42:14,923 - local_ai_server.history_manager - INFO - Created collection: response_history
+2025-03-20 13:42:14,923 - local_ai_server.history_manager - INFO - Deleted all response history
+2025-03-20 13:42:14,996 - local_ai_server.history_manager - INFO - Cleaned up 1 old history entries
+2025-03-20 13:42:15,020 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 13:42:15,020 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 13:42:16,705 - local_ai_server.history_manager - INFO - Response history manager initialized (enabled: True)
+2025-03-20 13:42:16,715 - local_ai_server.history_manager - INFO - Created collection: response_history
+2025-03-20 13:42:16,715 - local_ai_server.history_manager - INFO - Deleted all response history
+2025-03-20 13:42:16,781 - local_ai_server.history_manager - INFO - Created collection: response_history
+2025-03-20 13:42:16,781 - local_ai_server.history_manager - INFO - Deleted all response history
+2025-03-20 13:42:16,811 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 13:42:16,812 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 13:42:18,545 - local_ai_server.history_manager - INFO - Response history manager initialized (enabled: True)
+2025-03-20 13:42:18,555 - local_ai_server.history_manager - INFO - Created collection: response_history
+2025-03-20 13:42:18,556 - local_ai_server.history_manager - INFO - Deleted all response history

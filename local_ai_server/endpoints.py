@@ -10,6 +10,8 @@ from .model_manager import model_manager
 from .config import MODELS_DIR
 from .vector_store import get_vector_store
 from .rag import RAG
+from .history_manager import get_response_history  # Use factory function
+from .config import ENABLE_RESPONSE_HISTORY
 
 logger = logging.getLogger(__name__)
 
@@ -476,6 +478,9 @@ def setup_routes(app):
             model_name = data.get('model')
             if not model_name:
                 return jsonify({"error": "Model name is required"}), 400
+            
+            # Get history preference (default to global setting)
+            use_history = data.get('use_history', ENABLE_RESPONSE_HISTORY)
                 
             # Extract parameters for search and generation
             search_params = data.get('search_params', {})
@@ -492,7 +497,8 @@ def setup_routes(app):
                             query=query,
                             model_name=model_name,
                             search_params=search_params,
-                            generation_params=generation_params_copy
+                            generation_params=generation_params_copy,
+                            use_history=use_history
                         )
                         
                         yield f"data: {json.dumps({
@@ -502,6 +508,7 @@ def setup_routes(app):
                             'model': model_name,
                             'answer': response['answer'],
                             'retrieved_document_count': len(response['retrieved_documents']),
+                            'history_count': len(response.get('history_items', [])),
                             'finish_reason': 'stop'
                         })}\n\n"
                         yield "data: [DONE]\n\n"
@@ -520,7 +527,8 @@ def setup_routes(app):
                 query=query,
                 model_name=model_name,
                 search_params=search_params,
-                generation_params=generation_params
+                generation_params=generation_params,
+                use_history=use_history
             )
             
             return jsonify({
@@ -530,9 +538,104 @@ def setup_routes(app):
                 "model": model_name,
                 "answer": response["answer"],
                 "retrieved_documents": response["retrieved_documents"],
+                "history_items": response.get("history_items", []),
                 "metadata": response["metadata"]
             })
             
         except Exception as e:
             logger.error(f"Error in RAG completion: {str(e)}", exc_info=True)
             return jsonify({"error": str(e)}), 500
+
+    # Add history management endpoints
+    @app.route("/api/history", methods=['GET'])
+    def search_history():
+        """Search response history"""
+        try:
+            if not ENABLE_RESPONSE_HISTORY:
+                return jsonify({"error": "Response history is disabled"}), 400
+                
+            history_manager = get_response_history()  # Use factory function
+            query = request.args.get('query', '')
+            limit = int(request.args.get('limit', 10))
+            min_score = float(request.args.get('min_score', 0.7))
+            
+            # Parse filter parameters (format: filter.key=value)
+            filter_params = {}
+            for key, value in request.args.items():
+                if (key.startswith('filter.')):
+                    filter_key = key[7:]  # Remove 'filter.' prefix
+                    filter_params[filter_key] = value
+            
+            results = history_manager.find_similar_responses(
+                query=query,
+                limit=limit,
+                min_score=min_score,
+                filter_params=filter_params if filter_params else None
+            )
+            
+            return jsonify({
+                "status": "success",
+                "results": results,
+                "count": len(results)
+            })
+            
+        except Exception as e:
+            logger.error(f"Error searching history: {e}")
+            return jsonify({"error": str(e)}), 500
+            
+    @app.route("/api/history/clean", methods=['POST'])
+    def clean_history():
+        """Clean old history entries"""
+        try:
+            if not ENABLE_RESPONSE_HISTORY:
+                return jsonify({"error": "Response history is disabled"}), 400
+                
+            history_manager = get_response_history()  # Use factory function
+            data = request.get_json() or {}
+            days = int(data.get('days', 30))
+            
+            count = history_manager.clean_old_entries(days=days)
+            
+            return jsonify({
+                "status": "success",
+                "message": f"Cleaned {count} old history entries",
+                "count": count
+            })
+            
+        except Exception as e:
+            logger.error(f"Error cleaning history: {e}")
+            return jsonify({"error": str(e)}), 500
+            
+    @app.route("/api/history/clear", methods=['POST'])
+    def clear_history():
+        """Clear all history"""
+        try:
+            if not ENABLE_RESPONSE_HISTORY:
+                return jsonify({"error": "Response history is disabled"}), 400
+                
+            history_manager = get_response_history()  # Use factory function
+            success = history_manager.delete_all_history()
+            
+            if success:
+                return jsonify({
+                    "status": "success",
+                    "message": "All history cleared"
+                })
+            else:
+                return jsonify({
+                    "status": "error",
+                    "message": "Failed to clear history"
+                }), 500
+                
+        except Exception as e:
+            logger.error(f"Error clearing history: {e}")
+            return jsonify({"error": str(e)}), 500
+            
+    @app.route("/api/history/status", methods=['GET'])
+    def history_status():
+        """Get history status"""
+        return jsonify({
+            "enabled": ENABLE_RESPONSE_HISTORY
+        })
+
+    # ...rest of existing routes...

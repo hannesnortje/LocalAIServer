@@ -4,7 +4,8 @@ import time
 
 from .vector_store import get_vector_store
 from .model_manager import model_manager
-from .config import DEFAULT_MAX_TOKENS, DEFAULT_TEMPERATURE
+from .history_manager import get_response_history  # Use the factory function instead
+from .config import DEFAULT_MAX_TOKENS, DEFAULT_TEMPERATURE, ENABLE_RESPONSE_HISTORY
 
 logger = logging.getLogger(__name__)
 
@@ -39,11 +40,39 @@ class RAG:
         return "\n".join(formatted_docs)
     
     @staticmethod
+    def format_history_responses(history_items: List[Dict]) -> str:
+        """Format historical responses for inclusion in the prompt.
+        
+        Args:
+            history_items: List of historical response dictionaries
+            
+        Returns:
+            Formatted string with historical responses
+        """
+        if not history_items:
+            return ""
+        
+        history_text = ["PREVIOUS QUESTIONS AND ANSWERS:"]
+        
+        for i, item in enumerate(history_items, 1):
+            timestamp = item.get("metadata", {}).get("timestamp", "")
+            if timestamp:
+                date_str = time.strftime("%Y-%m-%d %H:%M", time.localtime(timestamp))
+                history_text.append(f"Date: {date_str}")
+                
+            history_text.append(f"User: {item['query']}")
+            history_text.append(f"Assistant: {item['response']}")
+            history_text.append("")  # Empty line between entries
+            
+        return "\n".join(history_text)
+    
+    @staticmethod
     def generate_rag_response(
         query: str,
         model_name: str,
         search_params: Optional[Dict] = None,
-        generation_params: Optional[Dict] = None
+        generation_params: Optional[Dict] = None,
+        use_history: Optional[bool] = None
     ) -> Dict:
         """Generate a response using retrieved documents as context.
         
@@ -52,15 +81,20 @@ class RAG:
             model_name: Name of the language model to use
             search_params: Parameters for document search
             generation_params: Parameters for LLM generation
+            use_history: Whether to include response history (defaults to global setting)
             
         Returns:
             Dict containing response text and metadata
         """
         start_time = time.time()
         
-        # Default parameters
+        # Set default parameters
         search_params = search_params or {}
         generation_params = generation_params or {}
+        
+        # Determine if we should use history
+        if use_history is None:
+            use_history = ENABLE_RESPONSE_HISTORY
         
         # Get vector store
         vector_store = get_vector_store()
@@ -69,8 +103,19 @@ class RAG:
         k = search_params.get('limit', 4)
         filter_params = search_params.get('filter')
         
-        # Retrieve relevant documents
         try:
+            # Get historical responses if enabled
+            history_items = []
+            if use_history:
+                history_manager = get_response_history()  # Use factory function
+                history_limit = search_params.get('history_limit', 3)
+                history_items = history_manager.find_similar_responses(
+                    query=query,
+                    limit=history_limit,
+                    filter_params=search_params.get('history_filter')
+                )
+            
+            # Retrieve relevant documents
             results = vector_store.similarity_search(
                 query=query,
                 k=k,
@@ -78,21 +123,25 @@ class RAG:
             )
             
             retrieved_docs = RAG.format_retrieved_documents(results)
-            logger.debug(f"Retrieved {len(results)} documents")
+            history_context = RAG.format_history_responses(history_items)
+            
+            logger.debug(f"Retrieved {len(results)} documents and {len(history_items)} history items")
             
             # Load the specified model
             if model_manager.model is None or model_manager.current_model_name != model_name:
                 model_manager.load_model(model_name)
             
-            # Construct prompt with retrieved documents
-            rag_prompt = f"""You are an AI assistant that answers questions based on the provided documents.
-            
+            # Construct prompt with retrieved documents and history
+            rag_prompt = f"""You are an AI assistant that answers questions based on the provided documents and conversation history.
+
+{history_context}
+
 DOCUMENTS:
 {retrieved_docs}
 
 USER QUESTION: {query}
 
-Please provide a comprehensive answer based solely on the information in the documents. If the documents don't contain relevant information, state that you don't have enough information to answer properly.
+Please provide a comprehensive answer based on the information in the documents and previous conversations. If the documents don't contain relevant information, state that you don't have enough information to answer properly.
 
 ANSWER:"""
             
@@ -115,12 +164,27 @@ ANSWER:"""
                 "answer": response_text,
                 "model": model_name,
                 "retrieved_documents": results,
+                "history_items": history_items if use_history else [],
                 "metadata": {
                     "query": query,
                     "document_count": len(results),
+                    "history_count": len(history_items),
                     "response_time": time.time() - start_time
                 }
             }
+            
+            # Save to history if enabled
+            if use_history:
+                history_manager = get_response_history()  # Use factory function
+                history_manager.save_response(
+                    query=query,
+                    response=response_text,
+                    metadata={
+                        "timestamp": time.time(),
+                        "model": model_name,
+                        "document_count": len(results)
+                    }
+                )
             
             return response
             

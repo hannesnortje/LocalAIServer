@@ -3,3 +3,13 @@
 2025-03-20 11:54:55,560 - local_ai_server.vector_store - INFO - Created collection: documents
 2025-03-20 12:01:23,111 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
 2025-03-20 12:01:23,111 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 13:29:53,750 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 13:29:53,750 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 13:29:55,725 - local_ai_server.history_manager - INFO - Created collection: response_history
+2025-03-20 13:29:55,725 - local_ai_server.history_manager - INFO - Response history manager initialized (enabled: False)
+2025-03-20 13:31:42,056 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 13:31:42,056 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 13:31:43,723 - local_ai_server.history_manager - INFO - Response history manager initialized (enabled: False)
+2025-03-20 13:35:09,958 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 13:35:09,959 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 13:35:12,459 - local_ai_server.history_manager - INFO - Response history manager initialized (enabled: False)

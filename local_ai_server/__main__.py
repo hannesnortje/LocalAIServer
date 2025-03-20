@@ -4,6 +4,7 @@ import threading
 import time
 import logging
 import os
+import socket
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 from werkzeug.serving import make_server
@@ -19,6 +20,20 @@ from local_ai_server import __version__
 logging.basicConfig(level=logging.INFO, 
                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+def is_port_in_use(port):
+    """Check if a port is already in use."""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        return s.connect_ex(('localhost', port)) == 0
+
+def find_free_port(start_port, max_attempts=10):
+    """Find a free port starting from start_port."""
+    port = start_port
+    for _ in range(max_attempts):
+        if not is_port_in_use(port):
+            return port
+        port += 1
+    return None
 
 class ServerRunner:
     def __init__(self):
@@ -37,6 +52,11 @@ class ServerRunner:
             )
             self.servers.append(server)
             server.serve_forever()
+        except OSError as e:
+            if 'Address already in use' in str(e):
+                logger.error(f"Port {port} is already in use. Please choose a different port.")
+            else:
+                logger.error(f"Server error: {e}")
         except Exception as e:
             logger.error(f"Server error: {e}")
         finally:
@@ -59,6 +79,28 @@ def main():
             print(f"Local AI Server v{__version__}")
             return 0
 
+        # Check if ports are already in use and find alternatives if needed
+        http_port = HTTP_PORT
+        https_port = HTTPS_PORT
+        
+        if is_port_in_use(http_port):
+            new_port = find_free_port(http_port + 1)
+            if new_port:
+                logger.warning(f"HTTP port {http_port} is in use. Using alternative port {new_port}.")
+                http_port = new_port
+            else:
+                logger.error(f"Could not find an available HTTP port. Please free port {http_port} or specify a different port.")
+                return 1
+                
+        if is_port_in_use(https_port):
+            new_port = find_free_port(https_port + 1)
+            if new_port:
+                logger.warning(f"HTTPS port {https_port} is in use. Using alternative port {new_port}.")
+                https_port = new_port
+            else:
+                logger.error(f"Could not find an available HTTPS port. Please free port {https_port} or specify a different port.")
+                return 1
+
         ssl_context, cert_file, key_file = get_ssl_context()
         
         # Register signal handlers
@@ -66,17 +108,17 @@ def main():
             signal.signal(sig, lambda s, f: runner.shutdown())
         
         print("Starting servers:")
-        print(f"HTTP  server at http://localhost:{HTTP_PORT}")
-        print(f"HTTPS server at https://localhost:{HTTPS_PORT}")
+        print(f"HTTP  server at http://localhost:{http_port}")
+        print(f"HTTPS server at https://localhost:{https_port}")
         print("API documentation available at:")
-        print(f"- http://localhost:{HTTP_PORT}/docs")
-        print(f"- https://localhost:{HTTPS_PORT}/docs")
+        print(f"- http://localhost:{http_port}/docs")
+        print(f"- https://localhost:{https_port}/docs")
         print("\nPress Ctrl+C to stop")
         
         # Start both HTTP and HTTPS servers
         executor = ThreadPoolExecutor(max_workers=2)
-        http_future = executor.submit(runner.run_server, app, HTTP_PORT)
-        https_future = executor.submit(runner.run_server, app, HTTPS_PORT, ssl_context)
+        http_future = executor.submit(runner.run_server, app, http_port)
+        https_future = executor.submit(runner.run_server, app, https_port, ssl_context)
         
         # Wait for shutdown signal
         runner.shutdown_event.wait()
