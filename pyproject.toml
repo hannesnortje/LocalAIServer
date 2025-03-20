@@ -33,7 +33,9 @@ dependencies = [
     "flask-swagger-ui>=3.36.0",
     "requests>=2.25.0",
     "waitress>=2.1.0",
-    "click>=8.0.0"
+    "click>=8.0.0",
+    "qdrant-client>=1.7.0",
+    "sentence-transformers>=2.2.2"
 ]
 
 [project.scripts]
@@ -42,10 +44,14 @@ local-ai-server = "local_ai_server.cli:cli"
 [tool.setuptools]
 package-dir = {"" = "."}
 packages = ["local_ai_server"]
-
-[tool.setuptools.package-data]
-local_ai_server = [
+package-data = {"local_ai_server" = [
     "static/*",
     "models/.gitkeep",
-    "ssl/.gitkeep"
-]
+    "ssl/.gitkeep",
+    "storage/vectors/.gitkeep"
+]}
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["local_ai_server*"]

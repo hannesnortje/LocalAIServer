@@ -146,6 +146,146 @@ def serve_swagger():
                         "500": {"description": "Error"}
                     }
                 }
+            },
+            "/v1/embeddings": {
+                "post": {
+                    "summary": "Create embeddings",
+                    "description": "Create embeddings for the given texts (OpenAI-compatible)",
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "input": {
+                                            "oneOf": [
+                                                {"type": "string"},
+                                                {"type": "array", "items": {"type": "string"}}
+                                            ]
+                                        },
+                                        "model": {"type": "string"}
+                                    },
+                                    "required": ["input"]
+                                }
+                            }
+                        }
+                    },
+                    "responses": {
+                        "200": {"description": "Embeddings generated successfully"},
+                        "400": {"description": "Invalid request"}
+                    }
+                }
+            },
+            "/v1/completions": {
+                "post": {
+                    "summary": "Create completion",
+                    "description": "Create text completion (OpenAI-compatible)",
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "model": {"type": "string"},
+                                        "prompt": {"type": "string"},
+                                        "temperature": {"type": "number"},
+                                        "max_tokens": {"type": "integer"},
+                                        "stream": {"type": "boolean"}
+                                    },
+                                    "required": ["model", "prompt"]
+                                }
+                            }
+                        }
+                    },
+                    "responses": {
+                        "200": {"description": "Completion generated successfully"},
+                        "400": {"description": "Invalid request"}
+                    }
+                }
+            },
+            "/api/documents": {
+                "post": {
+                    "summary": "Add documents",
+                    "description": "Add documents to the vector store",
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "texts": {
+                                            "type": "array",
+                                            "items": {"type": "string"}
+                                        },
+                                        "metadata": {
+                                            "type": "array",
+                                            "items": {"type": "object"}
+                                        }
+                                    },
+                                    "required": ["texts"]
+                                }
+                            }
+                        }
+                    },
+                    "responses": {
+                        "200": {"description": "Documents added successfully"},
+                        "400": {"description": "Invalid request"}
+                    }
+                },
+                "delete": {
+                    "summary": "Delete documents",
+                    "description": "Delete documents from the vector store",
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "ids": {
+                                            "type": "array",
+                                            "items": {"type": "string"}
+                                        }
+                                    },
+                                    "required": ["ids"]
+                                }
+                            }
+                        }
+                    },
+                    "responses": {
+                        "200": {"description": "Documents deleted successfully"},
+                        "404": {"description": "Documents not found"}
+                    }
+                }
+            },
+            "/api/search": {
+                "post": {
+                    "summary": "Search documents",
+                    "description": "Search for similar documents in the vector store",
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "query": {"type": "string"},
+                                        "limit": {"type": "integer", "default": 4},
+                                        "filter": {"type": "object"}
+                                    },
+                                    "required": ["query"]
+                                }
+                            }
+                        }
+                    },
+                    "responses": {
+                        "200": {"description": "Search results"},
+                        "400": {"description": "Invalid request"}
+                    }
+                }
             }
         }
     })

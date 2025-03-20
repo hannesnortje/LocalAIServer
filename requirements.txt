@@ -8,4 +8,7 @@ werkzeug>=2.0.0
 flask-swagger-ui>=3.36.0
 requests>=2.25.0
 waitress>=2.1.0
-# Remove: fastapi, uvicorn, pydantic, aiohttp
+qdrant-client>=1.7.0
+sentence-transformers>=2.2.2
+numpy>=1.24.0
+tqdm>=4.65.0

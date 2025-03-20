@@ -8,6 +8,7 @@ from . import __version__
 from .models_config import AVAILABLE_MODELS
 from .model_manager import model_manager
 from .config import MODELS_DIR
+from .vector_store import get_vector_store
 
 logger = logging.getLogger(__name__)
 
@@ -197,3 +198,174 @@ def setup_routes(app):
         except Exception as e:
             logger.error(f"Error deleting model: {e}")
             return jsonify({"error": "Failed to delete model"}), 500
+
+    @app.route("/api/documents", methods=['POST'])
+    def add_documents():
+        """Add documents to the vector store"""
+        try:
+            vector_store = get_vector_store()
+            data = request.get_json()
+            if not data or 'texts' not in data:
+                return jsonify({"error": "Missing texts in request"}), 400
+
+            texts = data['texts']
+            metadata = data.get('metadata', [{}] * len(texts))
+
+            if len(metadata) != len(texts):
+                return jsonify({"error": "Metadata length must match texts length"}), 400
+
+            ids = vector_store.add_texts(texts, metadata)
+            return jsonify({
+                "status": "success",
+                "ids": ids,
+                "count": len(ids)
+            })
+        except Exception as e:
+            logger.error(f"Error adding documents: {e}")
+            return jsonify({"error": str(e)}), 500
+
+    @app.route("/api/search", methods=['POST'])
+    def search_documents():
+        """Search for similar documents"""
+        try:
+            vector_store = get_vector_store()
+            data = request.get_json()
+            if not data or 'query' not in data:
+                return jsonify({"error": "Missing query in request"}), 400
+
+            query = data['query']
+            k = data.get('limit', 4)
+            filter_params = data.get('filter')
+
+            results = vector_store.similarity_search(
+                query=query,
+                k=k,
+                filter=filter_params
+            )
+            return jsonify({
+                "status": "success",
+                "results": results
+            })
+        except Exception as e:
+            logger.error(f"Error searching documents: {e}")
+            return jsonify({"error": str(e)}), 500
+
+    @app.route("/api/documents", methods=['DELETE'])
+    def delete_documents():
+        """Delete documents from the vector store"""
+        try:
+            vector_store = get_vector_store()
+            data = request.get_json()
+            if not data or 'ids' not in data:
+                return jsonify({"error": "Missing ids in request"}), 400
+
+            vector_store.delete_texts(data['ids'])
+            return jsonify({
+                "status": "success",
+                "message": f"Deleted {len(data['ids'])} documents"
+            })
+        except Exception as e:
+            logger.error(f"Error deleting documents: {e}")
+            return jsonify({"error": str(e)}), 500
+
+    @app.route("/v1/embeddings", methods=['POST'])
+    def create_embeddings():
+        """Create embeddings using the OpenAI-compatible format"""
+        try:
+            vector_store = get_vector_store()
+            data = request.get_json()
+            if not data or 'input' not in data:
+                return jsonify({"error": "Missing input in request"}), 400
+
+            input_texts = data['input']
+            if isinstance(input_texts, str):
+                input_texts = [input_texts]
+
+            embeddings = vector_store.model.encode(input_texts, convert_to_numpy=True)
+            
+            return jsonify({
+                "object": "list",
+                "data": [
+                    {
+                        "object": "embedding",
+                        "embedding": embedding.tolist(),
+                        "index": i
+                    } for i, embedding in enumerate(embeddings)
+                ],
+                "model": EMBEDDING_MODEL,
+                "usage": {
+                    "prompt_tokens": sum(len(text.split()) for text in input_texts),
+                    "total_tokens": sum(len(text.split()) for text in input_texts)
+                }
+            })
+        except Exception as e:
+            logger.error(f"Error creating embeddings: {e}")
+            return jsonify({"error": str(e)}), 500
+
+    @app.route("/v1/completions", methods=['POST'])
+    def create_completion():
+        """Create completion using the OpenAI-compatible format"""
+        try:
+            data = request.get_json()
+            if not data or 'prompt' not in data:
+                return jsonify({"error": "Missing prompt in request"}), 400
+
+            model_name = data.get('model')
+            if not model_name:
+                return jsonify({"error": "Model name is required"}), 400
+
+            # Extract parameters
+            params = {k: v for k, v in data.items() if k in VALID_MODEL_PARAMS and v is not None}
+            
+            # Load model if needed
+            if model_manager.model is None or model_manager.current_model_name != model_name:
+                model_manager.load_model(model_name)
+
+            # Handle streaming
+            if params.get('stream', False):
+                def generate():
+                    response = model_manager.generate(data['prompt'], **params)
+                    chunk = {
+                        "id": f"cmpl-{int(time.time())}",
+                        "object": "text_completion",
+                        "created": int(time.time()),
+                        "model": model_name,
+                        "choices": [{
+                            "text": response,
+                            "index": 0,
+                            "finish_reason": "stop",
+                            "logprobs": None
+                        }]
+                    }
+                    yield f"data: {json.dumps(chunk)}\n\n"
+                    yield "data: [DONE]\n\n"
+
+                return Response(
+                    stream_with_context(generate()),
+                    mimetype='text/event-stream',
+                    headers={'Cache-Control': 'no-cache'}
+                )
+
+            # Handle regular response
+            response = model_manager.generate(data['prompt'], **params)
+            return jsonify({
+                "id": f"cmpl-{int(time.time())}",
+                "object": "text_completion",
+                "created": int(time.time()),
+                "model": model_name,
+                "choices": [{
+                    "text": response,
+                    "index": 0,
+                    "finish_reason": "stop",
+                    "logprobs": None
+                }],
+                "usage": {
+                    "prompt_tokens": len(data['prompt'].split()),
+                    "completion_tokens": len(response.split()),
+                    "total_tokens": len(data['prompt'].split()) + len(response.split())
+                }
+            })
+
+        except Exception as e:
+            logger.error(f"Error in completion: {e}")
+            return jsonify({"error": str(e)}), 500
