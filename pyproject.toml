@@ -35,7 +35,8 @@ dependencies = [
     "waitress>=2.1.0",
     "click>=8.0.0",
     "qdrant-client>=1.7.0",
-    "sentence-transformers>=2.2.2"
+    "sentence-transformers>=2.2.2",
+    "chromadb>=0.4.22"  # Add Chroma as a dependency
 ]
 
 [project.scripts]

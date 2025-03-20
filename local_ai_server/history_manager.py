@@ -9,11 +9,14 @@ from typing import List, Dict, Optional, Union, Any
 from qdrant_client import QdrantClient
 from qdrant_client.http import models
 from sentence_transformers import SentenceTransformer
+import chromadb
+from chromadb.config import Settings
 
 from .config import (
     QDRANT_PATH, VECTOR_SIZE, EMBEDDING_MODEL,
     RESPONSE_HISTORY_COLLECTION, ENABLE_RESPONSE_HISTORY,
-    MAX_HISTORY_ITEMS, HISTORY_RETENTION_DAYS
+    MAX_HISTORY_ITEMS, HISTORY_RETENTION_DAYS,
+    VECTOR_DB_TYPE, CHROMA_PATH
 )
 
 logger = logging.getLogger(__name__)
@@ -38,10 +41,21 @@ class ResponseHistoryManager:
     
     def __init__(self, storage_path=None):
         if not hasattr(self, 'initialized') or not self.initialized or storage_path:
-            self.storage_path = storage_path or QDRANT_PATH
+            # Select appropriate storage path based on vector DB type
+            if storage_path is None:
+                if VECTOR_DB_TYPE.lower() == 'chroma':
+                    # For ChromaDB storage, use a 'history' subdirectory to avoid conflicts
+                    self.storage_path = CHROMA_PATH / 'history'
+                else:
+                    # For Qdrant, use the same path but different collection
+                    self.storage_path = QDRANT_PATH
+            else:
+                self.storage_path = storage_path
+            
             self.enabled = ENABLE_RESPONSE_HISTORY
             self.initialized = False  # Set to False until fully initialized
-            logger.debug(f"Preparing response history manager with storage at {self.storage_path}")
+            self.using_chroma = VECTOR_DB_TYPE.lower() == 'chroma' or (storage_path and str(storage_path).endswith('chroma'))
+            logger.debug(f"Preparing response history manager with storage at {self.storage_path} (using ChromaDB: {self.using_chroma})")
     
     def _initialize(self):
         """Delayed initialization to avoid lock conflicts."""
@@ -60,17 +74,32 @@ class ResponseHistoryManager:
             except Exception as e:
                 logger.warning(f"Could not set permissions: {e}")
             
-            # Initialize vector store client
-            self.client = QdrantClient(path=str(self.storage_path))
-            self.model = SentenceTransformer(EMBEDDING_MODEL)
+            # Initialize vector store client - use ChromaDB if configured
+            if self.using_chroma or (isinstance(self.storage_path, str) and self.storage_path == ":memory:"):
+                # Use ChromaDB for history too
+                logger.debug("Using ChromaDB for history")
+                self.client = chromadb.PersistentClient(
+                    path=str(self.storage_path),
+                    settings=Settings(
+                        anonymized_telemetry=False,
+                        allow_reset=True
+                    )
+                )
+                # Initialize embedding model
+                self.model = SentenceTransformer(EMBEDDING_MODEL)
+                self._ensure_chroma_collection()
+            else:
+                # Use Qdrant (legacy approach)
+                logger.debug("Using Qdrant for history")
+                self.client = QdrantClient(path=str(self.storage_path))
+                self.model = SentenceTransformer(EMBEDDING_MODEL)
+                self._ensure_qdrant_collection()
             
             # Force enabled for tests
-            if self.storage_path != QDRANT_PATH:  # This is a test instance
+            if isinstance(self.storage_path, str) and self.storage_path == ":memory:" or \
+               (self.storage_path != QDRANT_PATH and self.storage_path != CHROMA_PATH / 'history'):
                 logger.debug("Forcing history enabled for test instance")
                 self.enabled = True
-            
-            # Create collection if it doesn't exist
-            self._ensure_collection()
             
             self.initialized = True
             logger.info(f"Response history manager initialized (enabled: {self.enabled})")
@@ -78,14 +107,11 @@ class ResponseHistoryManager:
             logger.error(f"Failed to initialize history manager: {e}")
             raise
     
-    def _ensure_collection(self):
-        """Ensure the response history collection exists"""
-        if not hasattr(self, 'client'):
-            self._initialize()
-            
+    def _ensure_qdrant_collection(self):
+        """Ensure the Qdrant response history collection exists"""
         try:
             self.client.get_collection(RESPONSE_HISTORY_COLLECTION)
-            logger.debug(f"Found existing collection: {RESPONSE_HISTORY_COLLECTION}")
+            logger.debug(f"Found existing Qdrant collection: {RESPONSE_HISTORY_COLLECTION}")
         except Exception:
             self.client.create_collection(
                 collection_name=RESPONSE_HISTORY_COLLECTION,
@@ -94,7 +120,22 @@ class ResponseHistoryManager:
                     distance=models.Distance.COSINE
                 )
             )
-            logger.info(f"Created collection: {RESPONSE_HISTORY_COLLECTION}")
+            logger.info(f"Created Qdrant collection: {RESPONSE_HISTORY_COLLECTION}")
+    
+    def _ensure_chroma_collection(self):
+        """Ensure the ChromaDB response history collection exists"""
+        try:
+            # Try to get existing collection
+            self.collection = self.client.get_collection(name=RESPONSE_HISTORY_COLLECTION)
+            logger.debug(f"Found existing ChromaDB collection: {RESPONSE_HISTORY_COLLECTION}")
+        except Exception:
+            # Create collection if it doesn't exist
+            self.collection = self.client.create_collection(
+                name=RESPONSE_HISTORY_COLLECTION,
+                embedding_function=None,  # We'll handle embeddings ourselves
+                metadata={"description": "Response history storage"}
+            )
+            logger.info(f"Created ChromaDB collection: {RESPONSE_HISTORY_COLLECTION}")
     
     def save_response(self, query: str, response: Any, metadata: Optional[Dict] = None) -> Optional[str]:
         """Save a response to the history.
@@ -122,10 +163,7 @@ class ResponseHistoryManager:
             # Create embedding for the query
             query_embedding = self.model.encode(query, convert_to_numpy=True)
             
-            # Generate a unique ID
-            point_id = uuid.uuid4().int % (2**63)
-            
-            # Create metadata if not provided
+            # Ensure we have metadata
             if metadata is None:
                 metadata = {}
             
@@ -133,24 +171,48 @@ class ResponseHistoryManager:
             if 'timestamp' not in metadata:
                 metadata['timestamp'] = time.time()
                 
-            # Add the point to the collection
-            self.client.upsert(
-                collection_name=RESPONSE_HISTORY_COLLECTION,
-                points=[
-                    models.PointStruct(
-                        id=point_id,
-                        vector=query_embedding.tolist(),
-                        payload={
-                            "query": query,
-                            "response": response,
-                            "metadata": metadata
-                        }
-                    )
-                ]
-            )
+            if self.using_chroma:
+                # Using ChromaDB
+                # Generate a unique ID
+                point_id = str(uuid.uuid4())
+                
+                # Format metadata for Chroma
+                chroma_metadata = {
+                    "query": query,
+                    "response": response,
+                    **metadata  # Flatten metadata structure
+                }
+                
+                # Add to ChromaDB collection
+                self.collection.add(
+                    ids=[point_id],
+                    embeddings=[query_embedding.tolist()],
+                    metadatas=[chroma_metadata]
+                )
+            else:
+                # Using Qdrant
+                # Generate a unique ID
+                point_id = uuid.uuid4().int % (2**63)
+                
+                # Add the point to the collection
+                self.client.upsert(
+                    collection_name=RESPONSE_HISTORY_COLLECTION,
+                    points=[
+                        models.PointStruct(
+                            id=point_id,
+                            vector=query_embedding.tolist(),
+                            payload={
+                                "query": query,
+                                "response": response,
+                                "metadata": metadata
+                            }
+                        )
+                    ]
+                )
+                point_id = str(point_id)
             
             logger.debug(f"Saved response to history with ID: {point_id}")
-            return str(point_id)
+            return point_id
             
         except Exception as e:
             logger.error(f"Error saving response to history: {e}")
@@ -184,41 +246,77 @@ class ResponseHistoryManager:
             # Generate embedding for query
             query_embedding = self.model.encode(query, convert_to_numpy=True)
             
-            # Set up filter 
-            query_filter = None
-            if filter_params:
-                filter_conditions = []
-                for key, value in filter_params.items():
-                    filter_conditions.append(
-                        models.FieldCondition(
-                            key=f"metadata.{key}",
-                            match=models.MatchValue(value=value)
-                        )
-                    )
+            if self.using_chroma:
+                # Using ChromaDB
+                # Format filter for Chroma
+                where_document = None
+                if filter_params:
+                    where_document = filter_params
                 
-                if filter_conditions:
-                    query_filter = models.Filter(
-                        must=filter_conditions
-                    )
-            
-            # Search for similar responses
-            results = self.client.search(
-                collection_name=RESPONSE_HISTORY_COLLECTION,
-                query_vector=query_embedding.tolist(),
-                limit=limit,
-                query_filter=query_filter,
-                score_threshold=min_score
-            )
-            
-            # Format results
-            responses = []
-            for hit in results:
-                responses.append({
-                    "query": hit.payload["query"],
-                    "response": hit.payload["response"],
-                    "metadata": hit.payload["metadata"],
-                    "similarity": hit.score
-                })
+                # Search for similar responses
+                results = self.collection.query(
+                    query_embeddings=[query_embedding.tolist()],
+                    n_results=limit,
+                    where=where_document
+                )
+                
+                # Format results from ChromaDB format
+                responses = []
+                if results["ids"] and len(results["ids"][0]) > 0:
+                    for i in range(len(results["ids"][0])):
+                        metadata = results["metadatas"][0][i]
+                        # Extract query and response from metadata
+                        query_text = metadata.pop("query", "")
+                        response_text = metadata.pop("response", "")
+                        
+                        # Get similarity score
+                        score = 1.0 - float(results["distances"][0][i]) if "distances" in results else 0.9
+                        
+                        # Only include results above min_score
+                        if score >= min_score:
+                            responses.append({
+                                "query": query_text,
+                                "response": response_text,
+                                "metadata": metadata,
+                                "similarity": score
+                            })
+            else:
+                # Using Qdrant
+                # Set up filter 
+                query_filter = None
+                if filter_params:
+                    filter_conditions = []
+                    for key, value in filter_params.items():
+                        filter_conditions.append(
+                            models.FieldCondition(
+                                key=f"metadata.{key}",
+                                match=models.MatchValue(value=value)
+                            )
+                        )
+                    
+                    if filter_conditions:
+                        query_filter = models.Filter(
+                            must=filter_conditions
+                        )
+                
+                # Search for similar responses
+                results = self.client.search(
+                    collection_name=RESPONSE_HISTORY_COLLECTION,
+                    query_vector=query_embedding.tolist(),
+                    limit=limit,
+                    query_filter=query_filter,
+                    score_threshold=min_score
+                )
+                
+                # Format results
+                responses = []
+                for hit in results:
+                    responses.append({
+                        "query": hit.payload["query"],
+                        "response": hit.payload["response"],
+                        "metadata": hit.payload["metadata"],
+                        "similarity": hit.score
+                    })
                 
             logger.debug(f"Found {len(responses)} similar historical responses")
             return responses
@@ -246,38 +344,63 @@ class ResponseHistoryManager:
             # Calculate cutoff timestamp
             cutoff_time = time.time() - (days * 24 * 60 * 60)
             
-            # Create filter to find old entries
-            old_filter = models.Filter(
-                must=[
-                    models.FieldCondition(
-                        key="metadata.timestamp",
-                        range=models.Range(
-                            lt=cutoff_time
-                        )
-                    )
-                ]
-            )
-            
-            # Search for old entries to get count (with limit=0, we just get count)
-            count_result = self.client.count(
-                collection_name=RESPONSE_HISTORY_COLLECTION,
-                count_filter=old_filter
-            )
-            
-            if count_result.count == 0:
-                logger.debug("No old entries to clean up")
-                return 0
+            if self.using_chroma:
+                # Using ChromaDB
+                # First, get all IDs
+                all_ids = self.collection.get()["ids"]
                 
-            # Delete old entries
-            self.client.delete(
-                collection_name=RESPONSE_HISTORY_COLLECTION,
-                points_selector=models.FilterSelector(
-                    filter=old_filter
+                # Then get metadata for all entries
+                if all_ids:
+                    metadata = self.collection.get(ids=all_ids)["metadatas"]
+                    
+                    # Find IDs to delete
+                    ids_to_delete = []
+                    for i, meta in enumerate(metadata):
+                        timestamp = meta.get("timestamp", 0)
+                        if timestamp < cutoff_time:
+                            ids_to_delete.append(all_ids[i])
+                    
+                    # Delete old entries
+                    if ids_to_delete:
+                        self.collection.delete(ids=ids_to_delete)
+                        logger.info(f"Cleaned up {len(ids_to_delete)} old history entries")
+                        return len(ids_to_delete)
+                
+                return 0
+            else:
+                # Using Qdrant
+                # Create filter to find old entries
+                old_filter = models.Filter(
+                    must=[
+                        models.FieldCondition(
+                            key="metadata.timestamp",
+                            range=models.Range(
+                                lt=cutoff_time
+                            )
+                        )
+                    ]
                 )
-            )
-            
-            logger.info(f"Cleaned up {count_result.count} old history entries")
-            return count_result.count
+                
+                # Search for old entries to get count
+                count_result = self.client.count(
+                    collection_name=RESPONSE_HISTORY_COLLECTION,
+                    count_filter=old_filter
+                )
+                
+                if count_result.count == 0:
+                    logger.debug("No old entries to clean up")
+                    return 0
+                    
+                # Delete old entries
+                self.client.delete(
+                    collection_name=RESPONSE_HISTORY_COLLECTION,
+                    points_selector=models.FilterSelector(
+                        filter=old_filter
+                    )
+                )
+                
+                logger.info(f"Cleaned up {count_result.count} old history entries")
+                return count_result.count
             
         except Exception as e:
             logger.error(f"Error cleaning old entries: {e}")
@@ -296,11 +419,24 @@ class ResponseHistoryManager:
             self._initialize()
             
         try:
-            # Recreate the collection
-            self.client.delete_collection(RESPONSE_HISTORY_COLLECTION)
-            self._ensure_collection()
+            if self.using_chroma:
+                # Using ChromaDB
+                # Get all IDs
+                all_ids = self.collection.get()["ids"]
+                
+                # Delete all entries
+                if all_ids:
+                    self.collection.delete(ids=all_ids)
+                
+                logger.info("Deleted all response history (ChromaDB)")
+            else:
+                # Using Qdrant
+                # Recreate the collection
+                self.client.delete_collection(RESPONSE_HISTORY_COLLECTION)
+                self._ensure_qdrant_collection()
+                
+                logger.info("Deleted all response history (Qdrant)")
             
-            logger.info("Deleted all response history")
             return True
             
         except Exception as e:
@@ -308,10 +444,16 @@ class ResponseHistoryManager:
             return False
 
     def close(self):
-        """Close the Qdrant client connection"""
-        if hasattr(self, 'client'):
-            self.client.close()
-            delattr(self, 'client')
+        """Close the vector store connection"""
+        if self.using_chroma:
+            if hasattr(self, 'collection'):
+                self.collection = None
+            if hasattr(self, 'client'):
+                self.client = None
+        else:
+            if hasattr(self, 'client'):
+                self.client.close()
+                delattr(self, 'client')
         self.initialized = False
 
     def __del__(self):
@@ -341,3 +483,82 @@ def get_response_history(storage_path=None):
     if not response_history.initialized:
         response_history._initialize()
     return response_history
+
+def create_dummy_history_manager():
+    """Create a minimal dummy history manager for fallback when real one fails"""
+    class DummyHistoryManager:
+        """Simple in-memory history manager that doesn't use Qdrant"""
+        def __init__(self):
+            self.history = []
+            self.enabled = True
+            self.initialized = True
+            logger.warning("Using dummy history manager with limited functionality")
+            
+        def save_response(self, query, response, metadata=None):
+            """Save response to in-memory list"""
+            if not self.enabled:
+                return None
+            if metadata is None:
+                metadata = {"timestamp": time.time()}
+            self.history.append({"query": query, "response": response, "metadata": metadata})
+            return "dummy-id"
+            
+        def find_similar_responses(self, query, limit=5, min_score=0.7, filter_params=None):
+            """Simple keyword match - no vector similarity"""
+            if not self.enabled:
+                return []
+            
+            results = []
+            for item in self.history:
+                if any(word in item["query"].lower() for word in query.lower().split()):
+                    # Apply filter if provided
+                    if filter_params:
+                        skip = False
+                        for key, value in filter_params.items():
+                            if item["metadata"].get(key) != value:
+                                skip = True
+                                break
+                        if skip:
+                            continue
+                    
+                    # Add to results with dummy similarity
+                    results.append({
+                        "query": item["query"],
+                        "response": item["response"],
+                        "metadata": item["metadata"],
+                        "similarity": 0.9  # Dummy similarity score
+                    })
+                    
+                    if len(results) >= limit:
+                        break
+                        
+            return results
+            
+        def clean_old_entries(self, days=30):
+            """Remove old entries based on timestamp"""
+            if not self.enabled:
+                return 0
+                
+            cutoff = time.time() - (days * 24 * 60 * 60)
+            count_before = len(self.history)
+            
+            self.history = [
+                item for item in self.history 
+                if item["metadata"].get("timestamp", 0) >= cutoff
+            ]
+            
+            return count_before - len(self.history)
+            
+        def delete_all_history(self):
+            """Clear all history"""
+            if not self.enabled:
+                return False
+                
+            self.history = []
+            return True
+            
+        def close(self):
+            """No-op for dummy manager"""
+            pass
+    
+    return DummyHistoryManager()

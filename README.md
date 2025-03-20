@@ -208,11 +208,41 @@ LocalAIServer can be configured through environment variables:
 |----------|---------|-------------|
 | `HTTP_PORT` | 5000 | HTTP server port |
 | `HTTPS_PORT` | 5443 | HTTPS server port |
-| `QDRANT_PATH` | ./storage/vectors | Path for vector database storage |
-| `QDRANT_COLLECTION` | documents | Collection name in vector DB |
-| `ENABLE_RESPONSE_HISTORY` | false | Enable/disable response history |
+| `VECTOR_DB_TYPE` | chroma | Vector database type (chroma or qdrant) |
+| `QDRANT_PATH` | ./storage/vectors | Path for Qdrant vector storage |
+| `CHROMA_PATH` | ./storage/chroma | Path for Chroma vector storage |
+| `QDRANT_COLLECTION` | documents | Collection name in Qdrant |
+| `CHROMA_COLLECTION` | documents | Collection name in Chroma |
+| `ENABLE_RESPONSE_HISTORY` | true | Enable/disable response history |
 | `MAX_HISTORY_ITEMS` | 5 | Max history items per query |
 | `HISTORY_RETENTION_DAYS` | 30 | Days to retain history |
+
+### Vector Database Options
+
+LocalAIServer supports two vector database backends:
+
+1. **ChromaDB** (default): A vector database with excellent concurrency handling
+   - Better for multi-user deployments
+   - Resilient against concurrent access issues
+   - Simple architecture and good performance
+   - Recommended for most use cases
+
+2. **Qdrant**: A high-performance vector database
+   - Very fast search performance
+   - More advanced filtering capabilities
+   - Can experience locking issues with concurrent access
+   - Consider for single-user deployments with complex queries
+
+To use Qdrant instead of ChromaDB:
+
+```bash
+# Set environment variable
+export VECTOR_DB_TYPE=qdrant
+local-ai-server start
+
+# Or specify on the command line
+local-ai-server start --vector-db qdrant
+```
 
 ## Advanced Usage
 

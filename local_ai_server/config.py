@@ -40,6 +40,22 @@ API_VERSION = "1.0"
 API_TITLE = "Local AI Server"
 API_DESCRIPTION = "A local server that provides OpenAI-compatible endpoints for language models"
 
+# Vector DB type - Which database to use
+VECTOR_DB_TYPE = os.getenv("VECTOR_DB_TYPE", "chroma")  # Changed default from "qdrant" to "chroma"
+
+# Qdrant configuration
+QDRANT_HOST = os.getenv('QDRANT_HOST', 'localhost')
+QDRANT_PORT = int(os.getenv('QDRANT_PORT', 6333))
+QDRANT_PATH = PACKAGE_DIR / 'storage' / 'vectors'  # Local storage path
+QDRANT_COLLECTION = os.getenv('QDRANT_COLLECTION', 'documents')
+
+# ChromaDB configuration
+CHROMA_PATH = PACKAGE_DIR / 'storage' / 'chroma'
+CHROMA_COLLECTION = os.getenv('CHROMA_COLLECTION', 'documents')
+
+# Ensure ChromaDB directory exists
+CHROMA_PATH.mkdir(parents=True, exist_ok=True)
+
 # Qdrant configuration
 QDRANT_HOST = os.getenv('QDRANT_HOST', 'localhost')
 QDRANT_PORT = int(os.getenv('QDRANT_PORT', 6333))

@@ -202,3 +202,88 @@
 2025-03-20 15:07:54,776 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
 2025-03-20 15:08:24,309 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
 2025-03-20 15:08:24,310 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 15:48:45,362 - local_ai_server.chroma_store - ERROR - Failed to initialize ChromaDB: Collection documents does not exist.
+2025-03-20 15:48:45,716 - local_ai_server.chroma_store - ERROR - Failed to initialize ChromaDB: Collection documents does not exist.
+2025-03-20 15:48:46,061 - local_ai_server.chroma_store - ERROR - Failed to initialize ChromaDB: Collection documents does not exist.
+2025-03-20 15:48:46,368 - local_ai_server.chroma_store - ERROR - Failed to initialize ChromaDB: Collection documents does not exist.
+2025-03-20 15:50:36,327 - local_ai_server.chroma_store - ERROR - Failed to initialize ChromaDB: Collection documents does not exist.
+2025-03-20 15:50:36,669 - local_ai_server.chroma_store - ERROR - Failed to initialize ChromaDB: Collection documents does not exist.
+2025-03-20 15:50:36,994 - local_ai_server.chroma_store - ERROR - Failed to initialize ChromaDB: Collection documents does not exist.
+2025-03-20 15:50:37,324 - local_ai_server.chroma_store - ERROR - Failed to initialize ChromaDB: Collection documents does not exist.
+2025-03-20 15:53:19,310 - local_ai_server.chroma_store - INFO - Created collection: documents
+2025-03-20 15:53:19,324 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 15:53:19,324 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 15:53:21,886 - local_ai_server.chroma_store - INFO - ChromaDB vector store initialized at /tmp/chroma_test_5uocmx04
+2025-03-20 15:53:22,087 - chromadb.segment.impl.vector.local_persistent_hnsw - WARNING - Number of requested results 4 is greater than number of elements in index 3, updating n_results = 3
+2025-03-20 15:53:22,989 - local_ai_server.chroma_store - INFO - Created collection: documents
+2025-03-20 15:53:22,990 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 15:53:22,990 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 15:53:24,765 - local_ai_server.chroma_store - INFO - ChromaDB vector store initialized at /tmp/chroma_test_d0q3qcel
+2025-03-20 15:53:24,890 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 15:53:24,892 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 15:53:24,894 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 15:53:24,894 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 15:53:24,897 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 15:53:24,898 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 15:53:24,899 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 15:53:24,901 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 15:53:24,901 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 15:53:24,903 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 15:53:26,273 - local_ai_server.chroma_store - INFO - ChromaDB vector store initialized at /tmp/chroma_test_d0q3qcel
+2025-03-20 15:53:26,402 - chromadb.segment.impl.vector.local_persistent_hnsw - WARNING - Number of requested results 4 is greater than number of elements in index 1, updating n_results = 1
+2025-03-20 15:53:26,613 - local_ai_server.chroma_store - INFO - ChromaDB vector store initialized at /tmp/chroma_test_d0q3qcel
+2025-03-20 15:53:26,666 - chromadb.segment.impl.vector.local_persistent_hnsw - WARNING - Number of requested results 4 is greater than number of elements in index 2, updating n_results = 2
+2025-03-20 15:53:26,779 - local_ai_server.chroma_store - INFO - ChromaDB vector store initialized at /tmp/chroma_test_d0q3qcel
+2025-03-20 15:53:26,823 - chromadb.segment.impl.vector.local_persistent_hnsw - WARNING - Number of requested results 4 is greater than number of elements in index 3, updating n_results = 3
+2025-03-20 15:53:27,121 - local_ai_server.chroma_store - INFO - ChromaDB vector store initialized at /tmp/chroma_test_d0q3qcel
+2025-03-20 15:54:00,066 - local_ai_server.chroma_store - INFO - ChromaDB vector store initialized at /tmp/chroma_test_d0q3qcel
+2025-03-20 15:54:01,084 - local_ai_server.chroma_store - INFO - Created collection: documents
+2025-03-20 15:54:01,085 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 15:54:01,086 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 15:54:02,911 - local_ai_server.chroma_store - INFO - ChromaDB vector store initialized at /tmp/chroma_test_9ucz58u8
+2025-03-20 15:54:03,088 - chromadb.segment.impl.vector.local_persistent_hnsw - WARNING - Number of requested results 10 is greater than number of elements in index 1, updating n_results = 1
+2025-03-20 15:54:04,064 - local_ai_server.chroma_store - INFO - Created collection: documents
+2025-03-20 15:54:04,065 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 15:54:04,065 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 15:54:13,084 - local_ai_server.chroma_store - INFO - ChromaDB vector store initialized at /tmp/chroma_test_fkuccqbl
+2025-03-20 15:54:13,750 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 15:54:13,750 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 15:54:15,476 - local_ai_server.chroma_store - INFO - ChromaDB vector store initialized at /tmp/chroma_test_fkuccqbl
+2025-03-20 15:54:15,496 - chromadb.segment.impl.vector.local_persistent_hnsw - WARNING - Number of requested results 4 is greater than number of elements in index 1, updating n_results = 1
+2025-03-20 16:06:31,799 - local_ai_server.vector_store_factory - INFO - Using ChromaDB vector store (path: default)
+2025-03-20 16:06:32,100 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 16:06:32,100 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 16:06:34,687 - local_ai_server.chroma_store - INFO - ChromaDB vector store initialized at /media/hannesn/Hannes1/Code/LocalAIServer/local_ai_server/storage/chroma
+2025-03-20 16:06:34,687 - local_ai_server.app_state - INFO - Vector store initialized
+2025-03-20 16:06:35,361 - local_ai_server.history_manager - ERROR - Failed to initialize history manager: Storage folder /media/hannesn/Hannes1/Code/LocalAIServer/local_ai_server/storage/chroma/history is already accessed by another instance of Qdrant client. If you require concurrent access, use Qdrant server instead.
+2025-03-20 16:06:35,361 - local_ai_server.app_state - ERROR - Error initializing history manager: Storage folder /media/hannesn/Hannes1/Code/LocalAIServer/local_ai_server/storage/chroma/history is already accessed by another instance of Qdrant client. If you require concurrent access, use Qdrant server instead.
+2025-03-20 16:06:35,361 - local_ai_server.history_manager - WARNING - Using dummy history manager with limited functionality
+2025-03-20 16:06:35,361 - local_ai_server.app_state - WARNING - Using dummy history manager due to initialization failure
+2025-03-20 16:06:35,486 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 16:06:35,486 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 16:06:37,471 - local_ai_server.vector_store - INFO - Created collection: documents
+2025-03-20 16:06:37,574 - local_ai_server.vector_store - WARNING - query_points failed, falling back to search: Unknown arguments: ['query_vector']
+2025-03-20 16:06:37,587 - local_ai_server.vector_store - WARNING - query_points failed, falling back to search: Unknown arguments: ['query_vector']
+2025-03-20 16:06:37,603 - local_ai_server.vector_store - WARNING - query_points failed, falling back to search: Unknown arguments: ['query_vector']
+2025-03-20 16:06:52,146 - local_ai_server.app_state - INFO - Cleaning up application resources...
+2025-03-20 16:06:52,146 - local_ai_server.app_state - INFO - Vector store closed
+2025-03-20 16:06:52,146 - local_ai_server.app_state - INFO - History manager closed
+2025-03-20 16:11:55,265 - local_ai_server.vector_store_factory - INFO - Using ChromaDB vector store (path: default)
+2025-03-20 16:11:55,481 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 16:11:55,481 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 16:11:58,580 - local_ai_server.chroma_store - INFO - ChromaDB vector store initialized at /media/hannesn/Hannes1/Code/LocalAIServer/local_ai_server/storage/chroma
+2025-03-20 16:11:58,580 - local_ai_server.app_state - INFO - Vector store initialized
+2025-03-20 16:11:59,247 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 16:11:59,247 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 16:12:00,936 - local_ai_server.history_manager - INFO - Response history manager initialized (enabled: True)
+2025-03-20 16:12:00,936 - local_ai_server.app_state - INFO - History manager initialized
+2025-03-20 16:12:01,048 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 16:12:01,049 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 16:12:03,060 - local_ai_server.vector_store - INFO - Created collection: documents
+2025-03-20 16:12:03,152 - local_ai_server.vector_store - WARNING - query_points failed, falling back to search: Unknown arguments: ['query_vector']
+2025-03-20 16:12:03,170 - local_ai_server.vector_store - WARNING - query_points failed, falling back to search: Unknown arguments: ['query_vector']
+2025-03-20 16:12:03,191 - local_ai_server.vector_store - WARNING - query_points failed, falling back to search: Unknown arguments: ['query_vector']
+2025-03-20 16:12:03,265 - local_ai_server.vector_store - WARNING - query_points failed, falling back to search: Unknown arguments: ['query_vector']
+2025-03-20 16:12:19,467 - local_ai_server.app_state - INFO - Cleaning up application resources...
+2025-03-20 16:12:19,467 - local_ai_server.app_state - INFO - Vector store closed
+2025-03-20 16:12:19,467 - local_ai_server.app_state - INFO - History manager closed

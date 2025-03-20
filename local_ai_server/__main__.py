@@ -65,6 +65,12 @@ class ServerRunner:
     def shutdown(self):
         """Graceful shutdown of all servers"""
         self.shutdown_in_progress = True
+        
+        # Clean up resources
+        from .server import cleanup_resources
+        cleanup_resources()
+        
+        # Shutdown servers
         for server in self.servers:
             server.shutdown()
         self.shutdown_event.set()
@@ -74,10 +80,21 @@ def main():
     runner = ServerRunner()
     
     try:
-        # Check for version flag
-        if len(sys.argv) > 1 and sys.argv[1] == "--version":
-            print(f"Local AI Server v{__version__}")
-            return 0
+        # Check for command-line arguments
+        if len(sys.argv) > 1:
+            if sys.argv[1] == "--version":
+                print(f"Local AI Server v{__version__}")
+                return 0
+            elif sys.argv[1] == "--vector-db" and len(sys.argv) > 2:
+                # Allow overriding vector database from command line
+                db_type = sys.argv[2].lower()
+                if db_type in ['qdrant', 'chroma']:
+                    os.environ['VECTOR_DB_TYPE'] = db_type
+                    print(f"Using vector database: {db_type}")
+                else:
+                    print(f"Error: Unknown vector database type: {db_type}")
+                    print("Valid options: qdrant, chroma")
+                    return 1
 
         # Check if ports are already in use and find alternatives if needed
         http_port = HTTP_PORT
@@ -103,7 +120,7 @@ def main():
 
         ssl_context, cert_file, key_file = get_ssl_context()
         
-        # Register signal handlers
+        # Register signal handlers with custom cleanup
         for sig in [signal.SIGINT, signal.SIGTERM]:
             signal.signal(sig, lambda s, f: runner.shutdown())
         

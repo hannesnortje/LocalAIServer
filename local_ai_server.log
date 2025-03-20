@@ -13,3 +13,167 @@
 2025-03-20 13:35:09,958 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
 2025-03-20 13:35:09,959 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
 2025-03-20 13:35:12,459 - local_ai_server.history_manager - INFO - Response history manager initialized (enabled: False)
+2025-03-20 15:25:46,932 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 15:25:46,932 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 15:25:49,412 - local_ai_server.history_manager - ERROR - Failed to initialize history manager: Storage folder /media/hannesn/Hannes1/Code/LocalAIServer/local_ai_server/storage/vectors is already accessed by another instance of Qdrant client. If you require concurrent access, use Qdrant server instead.
+2025-03-20 15:25:49,412 - local_ai_server.rag - ERROR - Error in RAG response generation: Storage folder /media/hannesn/Hannes1/Code/LocalAIServer/local_ai_server/storage/vectors is already accessed by another instance of Qdrant client. If you require concurrent access, use Qdrant server instead.
+Traceback (most recent call last):
+  File "/media/hannesn/Hannes1/Code/LocalAIServer/.venv/lib/python3.12/site-packages/portalocker/portalocker.py", line 118, in lock
+    LOCKER(file_, flags)
+BlockingIOError: [Errno 11] Resource temporarily unavailable
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/media/hannesn/Hannes1/Code/LocalAIServer/.venv/lib/python3.12/site-packages/qdrant_client/local/qdrant_local.py", line 134, in _load
+    portalocker.lock(
+  File "/media/hannesn/Hannes1/Code/LocalAIServer/.venv/lib/python3.12/site-packages/portalocker/portalocker.py", line 131, in lock
+    raise exceptions.AlreadyLocked(
+portalocker.exceptions.AlreadyLocked: [Errno 11] Resource temporarily unavailable
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/media/hannesn/Hannes1/Code/LocalAIServer/local_ai_server/rag.py", line 108, in generate_rag_response
+    history_manager = get_response_history()  # Use factory function
+                      ^^^^^^^^^^^^^^^^^^^^^^
+  File "/media/hannesn/Hannes1/Code/LocalAIServer/local_ai_server/history_manager.py", line 342, in get_response_history
+    response_history._initialize()
+  File "/media/hannesn/Hannes1/Code/LocalAIServer/local_ai_server/history_manager.py", line 64, in _initialize
+    self.client = QdrantClient(path=str(self.storage_path))
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/media/hannesn/Hannes1/Code/LocalAIServer/.venv/lib/python3.12/site-packages/qdrant_client/qdrant_client.py", line 130, in __init__
+    self._client = QdrantLocal(
+                   ^^^^^^^^^^^^
+  File "/media/hannesn/Hannes1/Code/LocalAIServer/.venv/lib/python3.12/site-packages/qdrant_client/local/qdrant_local.py", line 67, in __init__
+    self._load()
+  File "/media/hannesn/Hannes1/Code/LocalAIServer/.venv/lib/python3.12/site-packages/qdrant_client/local/qdrant_local.py", line 139, in _load
+    raise RuntimeError(
+RuntimeError: Storage folder /media/hannesn/Hannes1/Code/LocalAIServer/local_ai_server/storage/vectors is already accessed by another instance of Qdrant client. If you require concurrent access, use Qdrant server instead.
+2025-03-20 15:25:49,416 - local_ai_server.endpoints - ERROR - RAG streaming error: Storage folder /media/hannesn/Hannes1/Code/LocalAIServer/local_ai_server/storage/vectors is already accessed by another instance of Qdrant client. If you require concurrent access, use Qdrant server instead.
+2025-03-20 15:29:55,714 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 15:29:55,714 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 15:30:01,488 - local_ai_server.app_state - INFO - Vector store initialized
+2025-03-20 15:30:01,494 - local_ai_server.history_manager - ERROR - Failed to initialize history manager: Storage folder /media/hannesn/Hannes1/Code/LocalAIServer/local_ai_server/storage/vectors is already accessed by another instance of Qdrant client. If you require concurrent access, use Qdrant server instead.
+2025-03-20 15:30:01,495 - local_ai_server.app_state - ERROR - Error initializing resources: Storage folder /media/hannesn/Hannes1/Code/LocalAIServer/local_ai_server/storage/vectors is already accessed by another instance of Qdrant client. If you require concurrent access, use Qdrant server instead.
+2025-03-20 15:31:35,859 - local_ai_server.rag - ERROR - Error in RAG response generation: 'NoneType' object has no attribute 'find_similar_responses'
+Traceback (most recent call last):
+  File "/media/hannesn/Hannes1/Code/LocalAIServer/local_ai_server/rag.py", line 115, in generate_rag_response
+    history_items = history_manager.find_similar_responses(
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'find_similar_responses'
+2025-03-20 15:31:35,860 - local_ai_server.endpoints - ERROR - RAG streaming error: 'NoneType' object has no attribute 'find_similar_responses'
+2025-03-20 15:33:25,187 - local_ai_server.app_state - INFO - Cleaning up application resources...
+2025-03-20 15:33:25,187 - local_ai_server.app_state - INFO - Vector store closed
+2025-03-20 15:33:35,085 - local_ai_server.app_state - WARNING - Found stale lock file at /media/hannesn/Hannes1/Code/LocalAIServer/local_ai_server/storage/vectors/.lock. Removing it...
+2025-03-20 15:33:36,119 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 15:33:36,119 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 15:33:38,353 - local_ai_server.app_state - INFO - Vector store initialized
+2025-03-20 15:33:39,212 - local_ai_server.history_manager - ERROR - Failed to initialize history manager: Storage folder /media/hannesn/Hannes1/Code/LocalAIServer/local_ai_server/storage/vectors is already accessed by another instance of Qdrant client. If you require concurrent access, use Qdrant server instead.
+2025-03-20 15:33:39,213 - local_ai_server.app_state - ERROR - Error initializing history manager: Storage folder /media/hannesn/Hannes1/Code/LocalAIServer/local_ai_server/storage/vectors is already accessed by another instance of Qdrant client. If you require concurrent access, use Qdrant server instead.
+2025-03-20 15:33:39,213 - local_ai_server.history_manager - WARNING - Using dummy history manager with limited functionality
+2025-03-20 15:33:39,213 - local_ai_server.app_state - WARNING - Using dummy history manager due to initialization failure
+2025-03-20 15:34:34,620 - local_ai_server.vector_store - WARNING - query_points failed, falling back to search: Unknown arguments: ['query_vector']
+2025-03-20 15:37:42,377 - local_ai_server.app_state - INFO - Cleaning up application resources...
+2025-03-20 15:37:42,378 - local_ai_server.app_state - INFO - Vector store closed
+2025-03-20 15:37:42,378 - local_ai_server.app_state - INFO - History manager closed
+2025-03-20 15:37:53,907 - local_ai_server.app_state - WARNING - Found stale lock file at /media/hannesn/Hannes1/Code/LocalAIServer/local_ai_server/storage/vectors/.lock. Removing it...
+2025-03-20 15:37:54,934 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 15:37:54,934 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 15:37:56,693 - local_ai_server.app_state - INFO - Vector store initialized
+2025-03-20 15:37:57,397 - local_ai_server.history_manager - ERROR - Failed to initialize history manager: Storage folder /media/hannesn/Hannes1/Code/LocalAIServer/local_ai_server/storage/vectors is already accessed by another instance of Qdrant client. If you require concurrent access, use Qdrant server instead.
+2025-03-20 15:37:57,398 - local_ai_server.app_state - ERROR - Error initializing history manager: Storage folder /media/hannesn/Hannes1/Code/LocalAIServer/local_ai_server/storage/vectors is already accessed by another instance of Qdrant client. If you require concurrent access, use Qdrant server instead.
+2025-03-20 15:37:57,398 - local_ai_server.history_manager - WARNING - Using dummy history manager with limited functionality
+2025-03-20 15:37:57,398 - local_ai_server.app_state - WARNING - Using dummy history manager due to initialization failure
+2025-03-20 15:38:57,042 - local_ai_server.vector_store - WARNING - query_points failed, falling back to search: Unknown arguments: ['query_vector']
+2025-03-20 15:40:37,183 - local_ai_server.history_manager - ERROR - Failed to initialize history manager: Storage folder /media/hannesn/Hannes1/Code/LocalAIServer/local_ai_server/storage/vectors is already accessed by another instance of Qdrant client. If you require concurrent access, use Qdrant server instead.
+2025-03-20 15:40:37,183 - local_ai_server.endpoints - ERROR - Error searching history: Storage folder /media/hannesn/Hannes1/Code/LocalAIServer/local_ai_server/storage/vectors is already accessed by another instance of Qdrant client. If you require concurrent access, use Qdrant server instead.
+2025-03-20 15:40:46,508 - local_ai_server.history_manager - ERROR - Failed to initialize history manager: Storage folder /media/hannesn/Hannes1/Code/LocalAIServer/local_ai_server/storage/vectors is already accessed by another instance of Qdrant client. If you require concurrent access, use Qdrant server instead.
+2025-03-20 15:40:46,508 - local_ai_server.endpoints - ERROR - Error searching history: Storage folder /media/hannesn/Hannes1/Code/LocalAIServer/local_ai_server/storage/vectors is already accessed by another instance of Qdrant client. If you require concurrent access, use Qdrant server instead.
+2025-03-20 15:40:47,396 - local_ai_server.history_manager - ERROR - Failed to initialize history manager: Storage folder /media/hannesn/Hannes1/Code/LocalAIServer/local_ai_server/storage/vectors is already accessed by another instance of Qdrant client. If you require concurrent access, use Qdrant server instead.
+2025-03-20 15:40:47,396 - local_ai_server.endpoints - ERROR - Error searching history: Storage folder /media/hannesn/Hannes1/Code/LocalAIServer/local_ai_server/storage/vectors is already accessed by another instance of Qdrant client. If you require concurrent access, use Qdrant server instead.
+2025-03-20 15:40:48,076 - local_ai_server.history_manager - ERROR - Failed to initialize history manager: Storage folder /media/hannesn/Hannes1/Code/LocalAIServer/local_ai_server/storage/vectors is already accessed by another instance of Qdrant client. If you require concurrent access, use Qdrant server instead.
+2025-03-20 15:40:48,076 - local_ai_server.endpoints - ERROR - Error searching history: Storage folder /media/hannesn/Hannes1/Code/LocalAIServer/local_ai_server/storage/vectors is already accessed by another instance of Qdrant client. If you require concurrent access, use Qdrant server instead.
+2025-03-20 15:40:48,698 - local_ai_server.history_manager - ERROR - Failed to initialize history manager: Storage folder /media/hannesn/Hannes1/Code/LocalAIServer/local_ai_server/storage/vectors is already accessed by another instance of Qdrant client. If you require concurrent access, use Qdrant server instead.
+2025-03-20 15:40:48,698 - local_ai_server.endpoints - ERROR - Error searching history: Storage folder /media/hannesn/Hannes1/Code/LocalAIServer/local_ai_server/storage/vectors is already accessed by another instance of Qdrant client. If you require concurrent access, use Qdrant server instead.
+2025-03-20 15:40:49,476 - local_ai_server.history_manager - ERROR - Failed to initialize history manager: Storage folder /media/hannesn/Hannes1/Code/LocalAIServer/local_ai_server/storage/vectors is already accessed by another instance of Qdrant client. If you require concurrent access, use Qdrant server instead.
+2025-03-20 15:40:49,477 - local_ai_server.endpoints - ERROR - Error searching history: Storage folder /media/hannesn/Hannes1/Code/LocalAIServer/local_ai_server/storage/vectors is already accessed by another instance of Qdrant client. If you require concurrent access, use Qdrant server instead.
+2025-03-20 15:40:50,566 - local_ai_server.history_manager - ERROR - Failed to initialize history manager: Storage folder /media/hannesn/Hannes1/Code/LocalAIServer/local_ai_server/storage/vectors is already accessed by another instance of Qdrant client. If you require concurrent access, use Qdrant server instead.
+2025-03-20 15:40:50,567 - local_ai_server.endpoints - ERROR - Error searching history: Storage folder /media/hannesn/Hannes1/Code/LocalAIServer/local_ai_server/storage/vectors is already accessed by another instance of Qdrant client. If you require concurrent access, use Qdrant server instead.
+2025-03-20 15:40:51,165 - local_ai_server.history_manager - ERROR - Failed to initialize history manager: Storage folder /media/hannesn/Hannes1/Code/LocalAIServer/local_ai_server/storage/vectors is already accessed by another instance of Qdrant client. If you require concurrent access, use Qdrant server instead.
+2025-03-20 15:40:51,165 - local_ai_server.endpoints - ERROR - Error searching history: Storage folder /media/hannesn/Hannes1/Code/LocalAIServer/local_ai_server/storage/vectors is already accessed by another instance of Qdrant client. If you require concurrent access, use Qdrant server instead.
+2025-03-20 15:40:51,826 - local_ai_server.history_manager - ERROR - Failed to initialize history manager: Storage folder /media/hannesn/Hannes1/Code/LocalAIServer/local_ai_server/storage/vectors is already accessed by another instance of Qdrant client. If you require concurrent access, use Qdrant server instead.
+2025-03-20 15:40:51,826 - local_ai_server.endpoints - ERROR - Error searching history: Storage folder /media/hannesn/Hannes1/Code/LocalAIServer/local_ai_server/storage/vectors is already accessed by another instance of Qdrant client. If you require concurrent access, use Qdrant server instead.
+2025-03-20 15:40:52,430 - local_ai_server.history_manager - ERROR - Failed to initialize history manager: Storage folder /media/hannesn/Hannes1/Code/LocalAIServer/local_ai_server/storage/vectors is already accessed by another instance of Qdrant client. If you require concurrent access, use Qdrant server instead.
+2025-03-20 15:40:52,431 - local_ai_server.endpoints - ERROR - Error searching history: Storage folder /media/hannesn/Hannes1/Code/LocalAIServer/local_ai_server/storage/vectors is already accessed by another instance of Qdrant client. If you require concurrent access, use Qdrant server instead.
+2025-03-20 15:40:53,078 - local_ai_server.history_manager - ERROR - Failed to initialize history manager: Storage folder /media/hannesn/Hannes1/Code/LocalAIServer/local_ai_server/storage/vectors is already accessed by another instance of Qdrant client. If you require concurrent access, use Qdrant server instead.
+2025-03-20 15:40:53,078 - local_ai_server.endpoints - ERROR - Error searching history: Storage folder /media/hannesn/Hannes1/Code/LocalAIServer/local_ai_server/storage/vectors is already accessed by another instance of Qdrant client. If you require concurrent access, use Qdrant server instead.
+2025-03-20 15:40:55,727 - local_ai_server.history_manager - ERROR - Failed to initialize history manager: Storage folder /media/hannesn/Hannes1/Code/LocalAIServer/local_ai_server/storage/vectors is already accessed by another instance of Qdrant client. If you require concurrent access, use Qdrant server instead.
+2025-03-20 15:40:55,727 - local_ai_server.endpoints - ERROR - Error searching history: Storage folder /media/hannesn/Hannes1/Code/LocalAIServer/local_ai_server/storage/vectors is already accessed by another instance of Qdrant client. If you require concurrent access, use Qdrant server instead.
+2025-03-20 15:46:17,388 - local_ai_server.app_state - INFO - Cleaning up application resources...
+2025-03-20 15:46:17,389 - local_ai_server.app_state - INFO - Vector store closed
+2025-03-20 15:46:17,389 - local_ai_server.app_state - INFO - History manager closed
+2025-03-20 15:46:30,066 - local_ai_server.app_state - WARNING - Found stale lock file at /media/hannesn/Hannes1/Code/LocalAIServer/local_ai_server/storage/vectors/.lock. Removing it...
+2025-03-20 15:46:31,067 - local_ai_server.vector_store_factory - INFO - Using Qdrant vector store
+2025-03-20 15:46:31,109 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 15:46:31,109 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 15:46:33,242 - local_ai_server.app_state - INFO - Vector store initialized
+2025-03-20 15:46:34,262 - local_ai_server.history_manager - ERROR - Failed to initialize history manager: Storage folder /media/hannesn/Hannes1/Code/LocalAIServer/local_ai_server/storage/vectors is already accessed by another instance of Qdrant client. If you require concurrent access, use Qdrant server instead.
+2025-03-20 15:46:34,262 - local_ai_server.app_state - ERROR - Error initializing history manager: Storage folder /media/hannesn/Hannes1/Code/LocalAIServer/local_ai_server/storage/vectors is already accessed by another instance of Qdrant client. If you require concurrent access, use Qdrant server instead.
+2025-03-20 15:46:34,262 - local_ai_server.history_manager - WARNING - Using dummy history manager with limited functionality
+2025-03-20 15:46:34,263 - local_ai_server.app_state - WARNING - Using dummy history manager due to initialization failure
+2025-03-20 15:50:05,139 - local_ai_server.app_state - INFO - Cleaning up application resources...
+2025-03-20 15:50:05,140 - local_ai_server.app_state - INFO - Vector store closed
+2025-03-20 15:50:05,140 - local_ai_server.app_state - INFO - History manager closed
+2025-03-20 15:50:16,791 - local_ai_server.app_state - WARNING - Found stale lock file at /media/hannesn/Hannes1/Code/LocalAIServer/local_ai_server/storage/vectors/.lock. Removing it...
+2025-03-20 15:50:17,791 - local_ai_server.vector_store_factory - INFO - Using Qdrant vector store
+2025-03-20 15:50:17,813 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 15:50:17,814 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 15:50:19,831 - local_ai_server.app_state - INFO - Vector store initialized
+2025-03-20 15:50:20,419 - local_ai_server.history_manager - ERROR - Failed to initialize history manager: Storage folder /media/hannesn/Hannes1/Code/LocalAIServer/local_ai_server/storage/vectors is already accessed by another instance of Qdrant client. If you require concurrent access, use Qdrant server instead.
+2025-03-20 15:50:20,419 - local_ai_server.app_state - ERROR - Error initializing history manager: Storage folder /media/hannesn/Hannes1/Code/LocalAIServer/local_ai_server/storage/vectors is already accessed by another instance of Qdrant client. If you require concurrent access, use Qdrant server instead.
+2025-03-20 15:50:20,419 - local_ai_server.history_manager - WARNING - Using dummy history manager with limited functionality
+2025-03-20 15:50:20,419 - local_ai_server.app_state - WARNING - Using dummy history manager due to initialization failure
+2025-03-20 15:52:30,026 - local_ai_server.app_state - INFO - Cleaning up application resources...
+2025-03-20 15:52:30,027 - local_ai_server.app_state - INFO - Vector store closed
+2025-03-20 15:52:30,027 - local_ai_server.app_state - INFO - History manager closed
+2025-03-20 15:52:39,800 - local_ai_server.app_state - WARNING - Found stale lock file at /media/hannesn/Hannes1/Code/LocalAIServer/local_ai_server/storage/vectors/.lock. Removing it...
+2025-03-20 15:52:40,800 - local_ai_server.vector_store_factory - INFO - Using Qdrant vector store
+2025-03-20 15:52:40,824 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 15:52:40,824 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 15:52:42,992 - local_ai_server.app_state - INFO - Vector store initialized
+2025-03-20 15:52:44,042 - local_ai_server.history_manager - ERROR - Failed to initialize history manager: Storage folder /media/hannesn/Hannes1/Code/LocalAIServer/local_ai_server/storage/vectors is already accessed by another instance of Qdrant client. If you require concurrent access, use Qdrant server instead.
+2025-03-20 15:52:44,042 - local_ai_server.app_state - ERROR - Error initializing history manager: Storage folder /media/hannesn/Hannes1/Code/LocalAIServer/local_ai_server/storage/vectors is already accessed by another instance of Qdrant client. If you require concurrent access, use Qdrant server instead.
+2025-03-20 15:52:44,042 - local_ai_server.history_manager - WARNING - Using dummy history manager with limited functionality
+2025-03-20 15:52:44,043 - local_ai_server.app_state - WARNING - Using dummy history manager due to initialization failure
+2025-03-20 15:59:12,767 - local_ai_server.app_state - INFO - Cleaning up application resources...
+2025-03-20 15:59:12,768 - local_ai_server.app_state - INFO - Vector store closed
+2025-03-20 15:59:12,768 - local_ai_server.app_state - INFO - History manager closed
+2025-03-20 15:59:22,598 - local_ai_server.vector_store_factory - INFO - Using ChromaDB vector store (path: default)
+2025-03-20 15:59:23,282 - local_ai_server.chroma_store - INFO - Created collection: documents
+2025-03-20 15:59:23,295 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 15:59:23,295 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 15:59:25,834 - local_ai_server.chroma_store - INFO - ChromaDB vector store initialized at /media/hannesn/Hannes1/Code/LocalAIServer/local_ai_server/storage/chroma
+2025-03-20 15:59:25,834 - local_ai_server.app_state - INFO - Vector store initialized
+2025-03-20 15:59:26,619 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 15:59:26,620 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 15:59:33,443 - local_ai_server.history_manager - INFO - Created collection: response_history
+2025-03-20 15:59:33,443 - local_ai_server.history_manager - INFO - Response history manager initialized (enabled: True)
+2025-03-20 15:59:33,443 - local_ai_server.app_state - INFO - History manager initialized
+2025-03-20 16:08:02,882 - local_ai_server.app_state - INFO - Cleaning up application resources...
+2025-03-20 16:08:02,882 - local_ai_server.app_state - INFO - Vector store closed
+2025-03-20 16:08:02,883 - local_ai_server.app_state - INFO - History manager closed
+2025-03-20 16:11:34,174 - local_ai_server.vector_store_factory - INFO - Using ChromaDB vector store (path: default)
+2025-03-20 16:11:34,569 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 16:11:34,569 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 16:11:36,771 - local_ai_server.chroma_store - INFO - ChromaDB vector store initialized at /media/hannesn/Hannes1/Code/LocalAIServer/local_ai_server/storage/chroma
+2025-03-20 16:11:36,771 - local_ai_server.app_state - INFO - Vector store initialized
+2025-03-20 16:11:37,554 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-20 16:11:37,555 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-20 16:11:39,359 - local_ai_server.history_manager - INFO - Created ChromaDB collection: response_history
+2025-03-20 16:11:39,359 - local_ai_server.history_manager - INFO - Response history manager initialized (enabled: True)
+2025-03-20 16:11:39,359 - local_ai_server.app_state - INFO - History manager initialized
+2025-03-20 16:15:03,145 - chromadb.segment.impl.vector.local_persistent_hnsw - WARNING - Number of requested results 10 is greater than number of elements in index 1, updating n_results = 1
+2025-03-20 16:15:23,002 - chromadb.segment.impl.vector.local_persistent_hnsw - WARNING - Number of requested results 10 is greater than number of elements in index 1, updating n_results = 1
+2025-03-20 16:15:57,783 - chromadb.segment.impl.vector.local_persistent_hnsw - WARNING - Number of requested results 3 is greater than number of elements in index 1, updating n_results = 1
+2025-03-20 16:17:02,442 - chromadb.segment.impl.vector.local_persistent_hnsw - WARNING - Number of requested results 3 is greater than number of elements in index 2, updating n_results = 2

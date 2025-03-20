@@ -5,6 +5,9 @@ from flask_swagger_ui import get_swaggerui_blueprint
 import logging
 import ssl
 from OpenSSL import crypto
+from .vector_store import get_vector_store, VectorStore
+from .history_manager import get_response_history, ResponseHistoryManager
+import atexit
 
 from .models_config import AVAILABLE_MODELS
 from .endpoints import setup_routes
@@ -461,6 +464,10 @@ def after_request(response):
     response.headers.add('Access-Control-Allow-Methods', '*')
     response.headers.add('Access-Control-Expose-Headers', '*')
     return response
+
+# Remove the vector_store and history_manager initialization
+# and replace with import from app_state
+from .app_state import vector_store, history_manager, cleanup_resources
 
 def get_ssl_context():
     """Create SSL context with proper certificate for HTTPS"""

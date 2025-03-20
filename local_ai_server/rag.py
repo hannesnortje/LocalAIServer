@@ -2,17 +2,21 @@ import logging
 from typing import List, Dict, Optional, Union, Any
 import time
 
-from .vector_store import get_vector_store
+from .vector_store_factory import get_vector_store
 from .model_manager import model_manager
 from .history_manager import get_response_history  # Use the factory function instead
 from .config import DEFAULT_MAX_TOKENS, DEFAULT_TEMPERATURE, ENABLE_RESPONSE_HISTORY
+
+# Import the global vector_store and history_manager from server.py
+from .app_state import vector_store as app_vector_store, history_manager as app_history_manager
 
 logger = logging.getLogger(__name__)
 
 class RAG:
     """Retrieval-Augmented Generation utility."""
     
-    vector_store = None  # Add class variable to store vector store instance
+    # We'll use the application-level shared instances by default
+    vector_store = None  # Will fall back to app_vector_store if None
     
     @staticmethod
     def format_retrieved_documents(docs: List[Dict[str, Any]]) -> str:
@@ -94,31 +98,56 @@ class RAG:
         if use_history is None:
             use_history = ENABLE_RESPONSE_HISTORY
         
-        # Use class vector store if set, otherwise get new instance
-        vector_store = RAG.vector_store or get_vector_store()
-        
-        # Set search parameters
-        k = search_params.get('limit', 4)
-        filter_params = search_params.get('filter')
-        
+        # Use global instances from the application
         try:
+            # Use class vector store if set, otherwise use application instance
+            vector_store = RAG.vector_store or app_vector_store
+            
+            # Set search parameters
+            k = search_params.get('limit', 4)
+            filter_params = search_params.get('filter')
+            
             # Get historical responses if enabled
             history_items = []
-            if use_history:
-                history_manager = get_response_history()  # Use factory function
-                history_limit = search_params.get('history_limit', 3)
-                history_items = history_manager.find_similar_responses(
-                    query=query,
-                    limit=history_limit,
-                    filter_params=search_params.get('history_filter')
-                )
+            if use_history and app_history_manager is not None:  # Check if history manager exists
+                try:
+                    history_manager = app_history_manager  # Use application instance
+                    history_limit = search_params.get('history_limit', 3)
+                    history_items = history_manager.find_similar_responses(
+                        query=query,
+                        limit=history_limit,
+                        filter_params=search_params.get('history_filter')
+                    )
+                except Exception as history_error:
+                    logger.warning(f"Failed to fetch history: {history_error}")
+                    # Continue without history
             
-            # Retrieve relevant documents
-            results = vector_store.similarity_search(
-                query=query,
-                k=k,
-                filter=filter_params
-            )
+            # Check if vector store exists
+            if vector_store is None:
+                logger.warning("No vector store available. Proceeding without document retrieval.")
+                results = []
+            else:
+                # Use prior conversation for search context when the query is a followup
+                search_query = query
+                if history_items and len(history_items) > 0:
+                    # Use a combined query of the most recent relevant conversation + current query
+                    # This helps with retrieving documents for follow-up questions
+                    recent_item = history_items[0]
+                    # Check if it's likely a follow-up by checking if it's short or has pronouns
+                    follow_up_indicators = ["it", "this", "that", "they", "their", "these", "those"]
+                    is_followup = len(query.split()) < 8 or any(word in query.lower().split() for word in follow_up_indicators)
+                    
+                    if is_followup:
+                        # Create a more comprehensive search query using prior context
+                        search_query = f"{recent_item['query']} {recent_item['response']} {query}"
+                        logger.debug(f"Using enhanced search query for follow-up: {search_query[:100]}...")
+                
+                # Retrieve relevant documents using the potentially enhanced search query
+                results = vector_store.similarity_search(
+                    query=search_query,  # Use enhanced query for search
+                    k=k,
+                    filter=filter_params
+                )
             
             retrieved_docs = RAG.format_retrieved_documents(results)
             history_context = RAG.format_history_responses(history_items)
@@ -129,8 +158,14 @@ class RAG:
             if model_manager.model is None or model_manager.current_model_name != model_name:
                 model_manager.load_model(model_name)
             
-            # Construct prompt with retrieved documents and history
-            rag_prompt = f"""You are an AI assistant that answers questions based on the provided documents and conversation history.
+            # Create a more contextual prompt for follow-up questions
+            system_instruction = "You are an AI assistant that answers questions based on the provided documents and conversation history."
+            
+            # Add context awareness for follow-up questions
+            if history_items and len(history_items) > 0:
+                system_instruction += " For follow-up questions, remember to consider the context from previous exchanges, even if documents don't directly address the follow-up."
+            
+            rag_prompt = f"""{system_instruction}
 
 {history_context}
 
@@ -139,7 +174,7 @@ DOCUMENTS:
 
 USER QUESTION: {query}
 
-Please provide a comprehensive answer based on the information in the documents and previous conversations. If the documents don't contain relevant information, state that you don't have enough information to answer properly.
+Please provide a comprehensive answer based on the information in the documents and previous conversations. If the documents don't contain relevant information but your previous conversation does, use that context to inform your response. If you truly don't have enough information on the topic, state that clearly.
 
 ANSWER:"""
 
@@ -171,18 +206,20 @@ ANSWER:"""
                 }
             }
             
-            # Save to history if enabled
-            if use_history:
-                history_manager = get_response_history()  # Use factory function
-                history_manager.save_response(
-                    query=query,
-                    response=response_text,
-                    metadata={
-                        "timestamp": time.time(),
-                        "model": model_name,
-                        "document_count": len(results)
-                    }
-                )
+            # Save to history if enabled and history manager exists
+            if use_history and app_history_manager is not None:
+                try:
+                    app_history_manager.save_response(
+                        query=query,
+                        response=response_text,
+                        metadata={
+                            "timestamp": time.time(),
+                            "model": model_name,
+                            "document_count": len(results)
+                        }
+                    )
+                except Exception as history_save_error:
+                    logger.warning(f"Failed to save to history: {history_save_error}")
             
             return response
             
