@@ -162,6 +162,54 @@ curl -X POST http://localhost:5000/api/history/clear
 curl http://localhost:5000/api/history/status
 ```
 
+### Retrieval-Augmented Generation (RAG)
+
+LocalAIServer provides powerful RAG capabilities that combine document retrieval with language models:
+
+```bash
+# Basic RAG query
+curl -X POST http://localhost:5000/api/rag \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "What is artificial intelligence?",
+    "model": "phi-2.Q4_K_M.gguf"
+  }'
+```
+
+#### Automatic RAG Integration
+
+You can enable automatic RAG for all chat completions, which ensures all queries benefit from document retrieval:
+
+```bash
+# Use OpenAI-compatible endpoint with retrieval
+curl -X POST http://localhost:5000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "phi-2.Q4_K_M.gguf",
+    "messages": [{"role": "user", "content": "What is AI?"}],
+    "use_retrieval": true,
+    "search_params": {
+      "limit": 5,
+      "filter": {"category": "technology"}
+    }
+  }'
+```
+
+To enable automatic RAG by default for all chat completions:
+
+1. Edit `endpoints.py` to change the default value:
+   ```python
+   use_retrieval = data.get('use_retrieval', True)  # Change from False to True
+   ```
+
+2. This seamlessly integrates both document knowledge and conversation history into every response, providing more informative and contextual answers.
+
+The LocalAIServer codebase is already well-structured for this integration:
+
+1. The `/v1/chat/completions` endpoint supports RAG through the `use_retrieval` parameter
+2. Changing `use_retrieval` to default to `true` enables automatic RAG for all queries
+3. The history management is robust with ChromaDB as the backend, ensuring reliable conversation context
+
 ### OpenAI Compatibility
 
 LocalAIServer provides drop-in replacement for OpenAI's API:
