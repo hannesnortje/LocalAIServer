@@ -1,5 +1,8 @@
 """Configuration for available models and their metadata."""
 
+# Add the EMBEDDING_MODEL constant - importing from endpoints.py
+EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
+
 AVAILABLE_MODELS = {
     "phi-2.Q4_K_M.gguf": {
         "name": "Phi-2 (4-bit Quantized)",

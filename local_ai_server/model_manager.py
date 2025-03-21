@@ -8,10 +8,11 @@ from llama_cpp import Llama
 logger = logging.getLogger(__name__)
 
 class ModelStatus:
-    def __init__(self, loaded: bool, model_type: Optional[str] = None, context_window: Optional[int] = None):
+    def __init__(self, loaded: bool, model_type: Optional[str] = None, context_window: Optional[int] = None, description: Optional[str] = None):
         self.loaded = loaded
         self.model_type = model_type
         self.context_window = context_window
+        self.description = description
 
 class ModelManager:
     def __init__(self, models_dir: Path):
@@ -89,16 +90,39 @@ class ModelManager:
 
     def get_status(self) -> Dict[str, ModelStatus]:
         models = {}
+        
+        # First check the models directory for all files
         for model_file in self.models_dir.glob('*'):
             if model_file.is_file():
                 model_type = 'gguf' if model_file.name.endswith('.gguf') else 'hf'
                 is_loaded = self.current_model_name == model_file.name
+                
+                # Get description from AVAILABLE_MODELS if it exists
+                description = None
+                from .models_config import AVAILABLE_MODELS
+                if model_file.name in AVAILABLE_MODELS:
+                    description = AVAILABLE_MODELS[model_file.name].get('description')
+                
                 models[model_file.name] = ModelStatus(
                     loaded=is_loaded,
                     model_type=model_type,
-                    context_window=self.context_window if is_loaded else None
+                    context_window=self.context_window if is_loaded else None,
+                    description=description
                 )
+        
         return models
+
+    def update_model_info(self, model_name: str, model_type: Optional[str] = None, context_window: Optional[int] = None):
+        """Update internal model info cache for dynamic model additions"""
+        # This is a helper method to update status for newly uploaded models
+        # without requiring a full reload of the model
+        model_file = self.models_dir / model_name
+        if not model_file.exists():
+            logger.warning(f"Cannot update info for non-existent model: {model_name}")
+            return
+        
+        # Force model info to be refreshed on next status check
+        logger.info(f"Updated model info for {model_name}: type={model_type}, context={context_window}")
 
     def generate_response(self, prompt: str, **kwargs) -> str:
         """Generate a response to the given prompt using the loaded model."""

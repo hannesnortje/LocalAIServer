@@ -2,22 +2,20 @@ from flask import jsonify, request, Response, stream_with_context
 import json
 import logging
 import requests
-from typing import List, Dict, Optional, Union
+import os
 import time
+import uuid
+import flask
+from typing import List, Dict, Optional, Union, Any
+
 from . import __version__
-from .models_config import AVAILABLE_MODELS
+from .models_config import AVAILABLE_MODELS, EMBEDDING_MODEL
 from .model_manager import model_manager
-from .config import MODELS_DIR
+from .config import MODELS_DIR, ENABLE_RESPONSE_HISTORY
 from .vector_store import get_vector_store
 from .rag import RAG
-from .history_manager import get_response_history  # Use factory function
-from .config import ENABLE_RESPONSE_HISTORY
-import hashlib
-import flask
-import uuid
-import pickle
-from flask import session
-from .app_state import history_manager as app_history_manager  # Import history_manager from app_state
+from .history_manager import get_response_history
+from .app_state import vector_store as app_vector_store, history_manager as app_history_manager
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +60,9 @@ def setup_routes(app):
             "name": name,
             "type": info.model_type or "unknown",
             "loaded": info.loaded,
-            "context_size": info.context_window
+            "context_size": info.context_window,
+            "description": info.description if hasattr(info, 'description') else None,
+            "custom_upload": name not in AVAILABLE_MODELS  # Flag to identify custom uploads
         } for name, info in models.items()])
 
     @app.route("/v1/models", methods=['GET'])
@@ -323,7 +323,7 @@ def setup_routes(app):
                     "choices": [{
                         "index": 0,
                         "message": response,
-                        "finish_reason": "stop"
+                        "finish_reason": 'stop'
                     }]
                 })
             
@@ -813,4 +813,132 @@ def setup_routes(app):
             logger.error(f"Error getting user history: {e}")
             return jsonify({"error": str(e)}), 500
 
-    # ...rest of existing routes...
+    @app.route("/api/models/upload", methods=['POST'])
+    def upload_model():
+        """Upload a model file"""
+        try:
+            if 'model_file' not in request.files:
+                return jsonify({"error": "No file provided"}), 400
+
+            model_file = request.files['model_file']
+            
+            # Check if filename is empty
+            if model_file.filename == '':
+                return jsonify({"error": "No file selected"}), 400
+            
+            # Check file extension
+            allowed_extensions = {'.gguf', '.bin', '.pt', '.pth', '.model'}
+            filename = model_file.filename
+            file_ext = os.path.splitext(filename)[1].lower()
+            
+            if file_ext not in allowed_extensions:
+                return jsonify({
+                    "error": f"Unsupported file type: {file_ext}",
+                    "allowed_extensions": list(allowed_extensions)
+                }), 400
+            
+            # Create models directory if it doesn't exist
+            os.makedirs(MODELS_DIR, exist_ok=True)
+            
+            # Save the file
+            file_path = os.path.join(MODELS_DIR, filename)
+            model_file.save(file_path)
+            
+            # Check if file was saved successfully
+            if os.path.exists(file_path):
+                # For GGUF files, try loading some model info
+                model_info = {}
+                model_type = "unknown"
+                context_window = None
+                
+                if file_ext == '.gguf':
+                    try:
+                        from llama_cpp import Llama
+                        # Just peek at the model metadata without fully loading it
+                        model = Llama(model_path=file_path, n_ctx=8, verbose=False, n_threads=1)
+                        context_window = model.n_ctx()
+                        model_type = "gguf"
+                        model_info = {
+                            "context_window": context_window,
+                            "model_type": model_type
+                        }
+                    except Exception as model_error:
+                        logger.warning(f"Could not extract info from model: {model_error}")
+                
+                # Update model manager's status cache to include this model immediately
+                # This ensures it appears in the UI right away
+                try:
+                    model_manager.update_model_info(
+                        model_name=filename,
+                        model_type=model_type,
+                        context_window=context_window
+                    )
+                except Exception as update_error:
+                    logger.warning(f"Could not update model cache: {update_error}")
+                
+                return jsonify({
+                    "status": "success",
+                    "message": f"Model '{filename}' uploaded successfully",
+                    "model_id": filename,
+                    "model_path": str(file_path),
+                    "model_info": model_info
+                })
+            else:
+                return jsonify({"error": "Failed to save file"}), 500
+            
+        except Exception as e:
+            logger.error(f"Error uploading model: {str(e)}", exc_info=True)
+            return jsonify({"error": str(e)}), 500
+
+    @app.route("/api/rag", methods=['POST'])
+    def api_rag():
+        """Generate a response using RAG for direct API access (non-OpenAI-compatible endpoint)"""
+        try:
+            data = request.get_json()
+            if not data:
+                return jsonify({"error": "No JSON data provided"}), 400
+
+            query = data.get('query')
+            if not query:
+                return jsonify({"error": "Query is required"}), 400
+                
+            model_name = data.get('model')
+            if not model_name:
+                return jsonify({"error": "Model name is required"}), 400
+            
+            # Extract search and generation parameters
+            search_params = data.get('search_params', {})
+            use_history = data.get('use_history', ENABLE_RESPONSE_HISTORY)
+            
+            # Extract generation parameters that are valid model parameters
+            generation_params = {k: v for k, v in data.items() if k in VALID_MODEL_PARAMS and v is not None}
+            
+            # Get user ID for history
+            user_id = get_persistent_user_id()
+            if user_id and 'user_id' not in search_params:
+                search_params['user_id'] = user_id
+            
+            # Generate RAG response
+            response = RAG.generate_rag_response(
+                query=query,
+                model_name=model_name,
+                search_params=search_params,
+                generation_params=generation_params,
+                use_history=use_history
+            )
+            
+            result = {
+                "answer": response["answer"],
+                "model": model_name,
+                "retrieved_documents": response["retrieved_documents"],
+                "metadata": response["metadata"]
+            }
+            
+            if use_history:
+                result["history_items"] = response.get("history_items", [])
+            
+            return jsonify(result)
+            
+        except Exception as e:
+            logger.error(f"Error in RAG endpoint: {str(e)}", exc_info=True)
+            return jsonify({"error": str(e)}), 500
