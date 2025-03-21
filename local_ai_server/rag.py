@@ -256,20 +256,26 @@ class RAG:
                 # Sort by direct similarity and take top k (lower score is better)
                 results = sorted(results, key=lambda x: x.get('direct_score', 1.0))[:k]
             
+            # Format retrieved documents and history for the prompt
             retrieved_docs = RAG.format_retrieved_documents(results)
             history_context = RAG.format_history_responses(history_items)
             
-            logger.debug(f"Retrieved {len(results)} documents and {len(history_items)} history items")
+            logger.debug(f"Using {len(results)} documents and {len(history_items)} history items")
             
             # Load the specified model
             if model_manager.model is None or model_manager.current_model_name != model_name:
                 model_manager.load_model(model_name)
             
-            # Use a modified prompt that emphasizes exact reproduction of document content
-            system_instruction = "You are an AI assistant that answers questions based ONLY on the provided DOCUMENTS and conversation history."
+            # Determine whether to use RAG or standard LLM mode based on document retrieval
+            # Check if we actually found relevant documents
+            using_rag_mode = len(results) > 0
             
-            # Create a more directive prompt that emphasizes matching exact terms
-            rag_prompt = f"""{system_instruction}
+            # Create appropriate system instruction based on available context
+            if using_rag_mode:
+                system_instruction = "You are an AI assistant that answers questions based on the provided DOCUMENTS and conversation history."
+                
+                # Use the RAG-specific prompt that emphasizes document information
+                rag_prompt = f"""{system_instruction}
 
 IMPORTANT: You must ONLY use information from these DOCUMENTS to answer the question.
 
@@ -290,6 +296,26 @@ CRITICAL INSTRUCTIONS:
 6. Avoid making up information not explicitly stated in the documents.
 7. If the documents contain contradictions or inaccuracies, report those exactly as given without correction.
 8. For follow-up questions, link to information from previous exchanges if relevant.
+
+ANSWER:"""
+            else:
+                # When no relevant documents are found, use a general LLM prompt
+                # that doesn't restrict the model to document information
+                system_instruction = "You are a helpful AI assistant that provides accurate and relevant information."
+                
+                rag_prompt = f"""{system_instruction}
+
+I don't have specific documents in my knowledge base about this topic, but I'll try to help based on my general knowledge.
+
+PREVIOUS CONVERSATION:
+{history_context}
+
+USER QUESTION: {query}
+
+INSTRUCTIONS:
+1. Provide a helpful and accurate response based on your general knowledge.
+2. If the question requires very specific or technical information that you're uncertain about, acknowledge the limitations.
+3. For follow-up questions, consider the context from previous exchanges if relevant.
 
 ANSWER:"""
 

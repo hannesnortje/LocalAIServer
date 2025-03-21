@@ -421,3 +421,22 @@ NameError: name 'app_history_manager' is not defined
 2025-03-21 10:29:28,237 - local_ai_server.app_state - INFO - Cleaning up application resources...
 2025-03-21 10:29:28,237 - local_ai_server.app_state - INFO - Vector store closed
 2025-03-21 10:29:28,237 - local_ai_server.app_state - INFO - History manager closed
+2025-03-21 11:34:57,063 - local_ai_server.server - WARNING - flask-session package not installed. Using fallback cookie-based sessions.
+2025-03-21 11:34:57,090 - local_ai_server.vector_store_factory - INFO - Using ChromaDB vector store (path: default)
+2025-03-21 11:34:57,476 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-21 11:34:57,477 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-21 11:34:59,595 - local_ai_server.chroma_store - INFO - ChromaDB vector store initialized at /media/hannesn/Hannes1/Code/LocalAIServer/local_ai_server/storage/chroma
+2025-03-21 11:34:59,596 - local_ai_server.app_state - INFO - Vector store initialized
+2025-03-21 11:35:00,779 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-21 11:35:00,780 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-21 11:35:02,343 - local_ai_server.history_manager - INFO - Response history manager initialized (enabled: True)
+2025-03-21 11:35:02,343 - local_ai_server.app_state - INFO - History manager initialized
+2025-03-21 11:35:31,651 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-03-21 11:35:31,651 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2025-03-21 11:35:38,710 - local_ai_server.vector_store - WARNING - query_points failed, falling back to search: Unknown arguments: ['query_vector']
+2025-03-21 11:43:13,914 - local_ai_server.app_state - INFO - Cleaning up application resources...
+2025-03-21 11:43:13,914 - local_ai_server.app_state - INFO - Vector store closed
+2025-03-21 11:43:13,914 - local_ai_server.app_state - INFO - History manager closed
+2025-03-21 11:43:14,680 - local_ai_server.app_state - INFO - Cleaning up application resources...
+2025-03-21 11:43:14,680 - local_ai_server.app_state - INFO - Vector store closed
+2025-03-21 11:43:14,681 - local_ai_server.app_state - INFO - History manager closed
