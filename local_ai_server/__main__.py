@@ -13,7 +13,9 @@ from werkzeug.serving import make_server
 package_root = Path(__file__).parent.parent
 sys.path.insert(0, str(package_root))
 
+# Use absolute imports instead of relative imports
 from local_ai_server.server import app, get_ssl_context, HTTP_PORT, HTTPS_PORT
+from local_ai_server.app_state import cleanup_resources
 from local_ai_server import __version__
 
 # Configure logging
@@ -66,8 +68,7 @@ class ServerRunner:
         """Graceful shutdown of all servers"""
         self.shutdown_in_progress = True
         
-        # Clean up resources
-        from .server import cleanup_resources
+        # Clean up resources using the imported function instead of relative import
         cleanup_resources()
         
         # Shutdown servers

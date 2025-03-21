@@ -225,17 +225,7 @@ class ResponseHistoryManager:
         min_score: float = 0.7,
         filter_params: Optional[Dict] = None
     ) -> List[Dict]:
-        """Find similar previous responses based on query similarity.
-        
-        Args:
-            query: The current query
-            limit: Maximum number of responses to return
-            min_score: Minimum similarity score (0-1)
-            filter_params: Additional filters
-            
-        Returns:
-            List of similar responses with metadata
-        """
+        """Find similar previous responses based on query similarity."""
         if not self.enabled:
             return []
             
@@ -243,6 +233,10 @@ class ResponseHistoryManager:
             self._initialize()
             
         try:
+            # For empty query, return most recent entries matching filter
+            if not query.strip():
+                return self._get_filtered_responses(filter_params, limit)
+                
             # Generate embedding for query
             query_embedding = self.model.encode(query, convert_to_numpy=True)
             
@@ -256,30 +250,74 @@ class ResponseHistoryManager:
                 # Search for similar responses
                 results = self.collection.query(
                     query_embeddings=[query_embedding.tolist()],
-                    n_results=limit,
-                    where=where_document
+                    n_results=min(limit, 100),  # Avoid requesting more than available
+                    where=where_document,
+                    include=["metadatas", "documents", "distances"]
                 )
                 
                 # Format results from ChromaDB format
                 responses = []
                 if results["ids"] and len(results["ids"][0]) > 0:
                     for i in range(len(results["ids"][0])):
-                        metadata = results["metadatas"][0][i]
+                        metadata = results["metadatas"][0][i].copy()
                         # Extract query and response from metadata
                         query_text = metadata.pop("query", "")
                         response_text = metadata.pop("response", "")
                         
-                        # Get similarity score
-                        score = 1.0 - float(results["distances"][0][i]) if "distances" in results else 0.9
+                        # Get similarity score (convert distance to similarity)
+                        if "distances" in results and len(results["distances"]) > 0:
+                            # ChromaDB uses cosine distance (0 is identical, 2 is opposite)
+                            # Convert to similarity score (1 is identical, 0 is opposite)
+                            distance = float(results["distances"][0][i])
+                            score = 1.0 - (distance / 2.0)
+                        else:
+                            score = 0.9  # Default if distance not available
                         
                         # Only include results above min_score
                         if score >= min_score:
                             responses.append({
+                                "id": results["ids"][0][i],
                                 "query": query_text,
                                 "response": response_text,
                                 "metadata": metadata,
                                 "similarity": score
                             })
+                
+                # If no results and we have a filter, try without it
+                if not responses and filter_params:
+                    # Try again without filter
+                    logger.debug("No results with filter, trying without filter")
+                    basic_results = self.collection.query(
+                        query_embeddings=[query_embedding.tolist()],
+                        n_results=min(limit, 100),
+                        include=["metadatas", "documents", "distances"]
+                    )
+                    
+                    if basic_results["ids"] and len(basic_results["ids"][0]) > 0:
+                        for i in range(len(basic_results["ids"][0])):
+                            metadata = basic_results["metadatas"][0][i].copy()
+                            # Extract query and response
+                            query_text = metadata.pop("query", "")
+                            response_text = metadata.pop("response", "")
+                            
+                            # Calculate score
+                            if "distances" in basic_results and len(basic_results["distances"]) > 0:
+                                distance = float(basic_results["distances"][0][i])
+                                score = 1.0 - (distance / 2.0)
+                            else:
+                                score = 0.9
+                            
+                            if score >= min_score:
+                                responses.append({
+                                    "id": basic_results["ids"][0][i],
+                                    "query": query_text,
+                                    "response": response_text,
+                                    "metadata": metadata,
+                                    "similarity": score
+                                })
+                                
+                                if len(responses) >= limit:
+                                    break
             else:
                 # Using Qdrant
                 # Set up filter 
@@ -317,14 +355,61 @@ class ResponseHistoryManager:
                         "metadata": hit.payload["metadata"],
                         "similarity": hit.score
                     })
-                
+        
             logger.debug(f"Found {len(responses)} similar historical responses")
             return responses
             
         except Exception as e:
             logger.error(f"Error finding similar responses: {e}")
             return []
-    
+
+    def _get_filtered_responses(self, filter_params: Optional[Dict] = None, limit: int = 10) -> List[Dict]:
+        """Get most recent responses matching the filter."""
+        try:
+            if self.using_chroma:
+                # For ChromaDB, get all entries matching filter or all entries if no filter
+                where_filter = filter_params if filter_params else None
+                
+                results = self.collection.get(
+                    where=where_filter,
+                    limit=limit
+                )
+                
+                responses = []
+                if results and "ids" in results and len(results["ids"]) > 0:
+                    for i in range(len(results["ids"])):
+                        metadata = results["metadatas"][i].copy()
+                        # Extract query and response
+                        query_text = metadata.pop("query", "")
+                        response_text = metadata.pop("response", "")
+                        
+                        responses.append({
+                            "id": results["ids"][i],
+                            "query": query_text,
+                            "response": response_text,
+                            "metadata": metadata,
+                            "similarity": 1.0  # Default high similarity as these are direct matches
+                        })
+                    
+                    # Sort by timestamp if available
+                    responses.sort(
+                        key=lambda x: x.get("metadata", {}).get("timestamp", 0),
+                        reverse=True  # Most recent first
+                    )
+                    
+                    # Limit to requested number
+                    responses = responses[:limit]
+                
+                return responses
+            else:
+                # Qdrant implementation
+                # ...existing code for Qdrant...
+                return []
+                
+        except Exception as e:
+            logger.error(f"Error getting filtered responses: {e}")
+            return []
+
     def clean_old_entries(self, days: int = HISTORY_RETENTION_DAYS) -> int:
         """Remove entries older than specified days.
         
@@ -442,6 +527,90 @@ class ResponseHistoryManager:
         except Exception as e:
             logger.error(f"Error deleting all history: {e}")
             return False
+
+    def get_user_history(self, user_id: str, limit: int = 20) -> List[Dict]:
+        """Get all conversation history for a specific user.
+        
+        Args:
+            user_id: The user's unique identifier
+            limit: Maximum number of history items to return
+            
+        Returns:
+            List of conversations with this user
+        """
+        if not self.enabled:
+            return []
+            
+        if not self.initialized:
+            self._initialize()
+            
+        try:
+            if self.using_chroma:
+                # Using ChromaDB
+                # For ChromaDB, we use a where filter to get all items for this user
+                results = self.collection.get(
+                    where={"user_id": user_id},
+                    limit=limit
+                )
+                
+                # Format results
+                responses = []
+                if results and "ids" in results and len(results["ids"]) > 0:
+                    for i in range(len(results["ids"])):
+                        metadata = results["metadatas"][i].copy()
+                        # Extract query and response
+                        query_text = metadata.pop("query", "")
+                        response_text = metadata.pop("response", "")
+                        
+                        # Add to results
+                        responses.append({
+                            "id": results["ids"][i],
+                            "query": query_text,
+                            "response": response_text,
+                            "metadata": metadata
+                        })
+                        
+                    # Sort by timestamp
+                    responses.sort(key=lambda x: x.get("metadata", {}).get("timestamp", 0))
+                    
+                return responses
+            else:
+                # Using Qdrant
+                # For Qdrant, we create a filter for the user_id field
+                user_filter = models.Filter(
+                    must=[
+                        models.FieldCondition(
+                            key="metadata.user_id",
+                            match=models.MatchValue(value=user_id)
+                        )
+                    ]
+                )
+                
+                # Get points matching the filter
+                results = self.client.scroll(
+                    collection_name=RESPONSE_HISTORY_COLLECTION,
+                    scroll_filter=user_filter,
+                    limit=limit
+                )
+                
+                # Format results
+                responses = []
+                for point in results[0]:
+                    responses.append({
+                        "id": str(point.id),
+                        "query": point.payload["query"],
+                        "response": point.payload["response"],
+                        "metadata": point.payload["metadata"]
+                    })
+                    
+                # Sort by timestamp
+                responses.sort(key=lambda x: x.get("metadata", {}).get("timestamp", 0))
+                
+                return responses
+                
+        except Exception as e:
+            logger.error(f"Error getting user history: {e}")
+            return []
 
     def close(self):
         """Close the vector store connection"""

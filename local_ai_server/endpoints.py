@@ -12,6 +12,12 @@ from .vector_store import get_vector_store
 from .rag import RAG
 from .history_manager import get_response_history  # Use factory function
 from .config import ENABLE_RESPONSE_HISTORY
+import hashlib
+import flask
+import uuid
+import pickle
+from flask import session
+from .app_state import history_manager as app_history_manager  # Import history_manager from app_state
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +26,27 @@ VALID_MODEL_PARAMS = {
     'temperature', 'max_tokens', 'stream', 'top_p', 
     'frequency_penalty', 'presence_penalty', 'stop'
 }
+
+def get_persistent_user_id():
+    """Get a persistent user ID that works across sessions."""
+    user_id = None
+    
+    # Try to get from cookie first (most persistent)
+    cookie_name = "localai_user_id"
+    user_id = request.cookies.get(cookie_name)
+    
+    # If no cookie, check session (if available)
+    if not user_id and hasattr(flask, 'session'):
+        try:
+            user_id = flask.session.get('user_id')
+        except:
+            pass
+    
+    # If still no user ID, generate new ID
+    if not user_id:
+        user_id = str(uuid.uuid4())
+        
+    return user_id
 
 def setup_routes(app):
     @app.route("/api/available-models", methods=['GET'])
@@ -61,6 +88,13 @@ def setup_routes(app):
             # Extract only valid parameters that are explicitly provided
             params = {k: v for k, v in data.items() if k in VALID_MODEL_PARAMS and v is not None}
             
+            # Get a persistent user ID that works across chat resets
+            user_id = get_persistent_user_id()
+            logger.debug(f"User ID for request: {user_id}")
+            
+            # Create a response object to modify later
+            response_obj = None
+            
             # Check if RAG should be used
             use_retrieval = data.get('use_retrieval', False)
             
@@ -71,8 +105,21 @@ def setup_routes(app):
                 
                 query = messages[-1]['content']
                 
-                # Extract search parameters
+                # Extract search parameters - add debug logging
                 search_params = data.get('search_params', {})
+                logger.debug(f"Original search params: {search_params}")
+                
+                # Add user_id to search params for history filtering
+                if 'search_params' not in data:
+                    data['search_params'] = {}
+                data['search_params']['user_id'] = user_id
+                
+                # Allow direct document injection for testing (pass through if provided)
+                if 'forced_documents' in search_params:
+                    logger.debug(f"Forced documents provided: {len(search_params['forced_documents'])}")
+                
+                # Debug log the full search params
+                logger.debug(f"RAG search params: {data['search_params']}")
                 
                 # Handle streaming for RAG
                 if params.get('stream', False):
@@ -126,11 +173,40 @@ def setup_routes(app):
                 response = RAG.generate_rag_response(
                     query=query,
                     model_name=model_name,
-                    search_params=search_params,
+                    search_params=data['search_params'],  # Use updated search params with user_id
                     generation_params=params
                 )
                 
-                return jsonify({
+                # When saving to history, include user ID
+                if app_history_manager is not None:
+                    try:
+                        app_history_manager.save_response(
+                            query=query,
+                            response=response["answer"],
+                            metadata={
+                                "timestamp": time.time(),
+                                "model": model_name,
+                                "document_count": len(response.get("retrieved_documents", [])),
+                                "user_id": user_id  # Store user ID in metadata
+                            }
+                        )
+                    except Exception as history_save_error:
+                        logger.warning(f"Failed to save to history: {history_save_error}")
+                
+                # Include debugging info in response for testing
+                debug_info = {}
+                if app.config.get('TESTING', False):
+                    debug_info = {
+                        "debug": {
+                            "user_id": user_id,
+                            "retrieved_doc_count": len(response.get("retrieved_documents", [])),
+                            "history_count": len(response.get("history_items", [])),
+                            "prompt": response.get("metadata", {}).get("rag_prompt", "")
+                        }
+                    }
+                
+                # Create final response with user_id cookie
+                response_obj = jsonify({
                     "id": f"chatrag_{int(time.time())}",
                     "object": "chat.completion",
                     "created": int(time.time()),
@@ -147,57 +223,129 @@ def setup_routes(app):
                         "prompt_tokens": sum(len(m.get('content', '').split()) for m in messages),
                         "completion_tokens": len(response["answer"].split()),
                         "total_tokens": sum(len(m.get('content', '').split()) for m in messages) + len(response["answer"].split())
-                    }
+                    },
+                    **debug_info
+                })
+                
+            else:
+                # Regular chat completion (non-RAG) - continue with existing code
+                # Load model if needed
+                if model_manager.model is None or model_manager.current_model_name != model_name:
+                    try:
+                        model_manager.load_model(model_name)
+                    except Exception as e:
+                        return jsonify({"error": f"Failed to load model: {str(e)}"}), 500
+
+                # Handle streaming response
+                if params.get('stream', False):
+                    def generate():
+                        try:
+                            response = model_manager.create_chat_completion(messages, **params)
+                            yield f"data: {json.dumps({
+                                'id': f'chat_{int(time.time())}',
+                                'object': 'chat.completion.chunk',
+                                'created': int(time.time()),
+                                'model': model_name,
+                                'choices': [{
+                                    'index': 0,
+                                    'delta': response,
+                                    'finish_reason': 'stop'
+                                }]
+                            })}\n\n"
+                            yield "data: [DONE]\n\n"
+                        except Exception as e:
+                            logger.error(f"Streaming error: {e}")
+                            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+
+                    return Response(
+                        stream_with_context(generate()), 
+                        mimetype='text/event-stream',
+                        headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'}
+                    )
+
+                # Get ALL previous conversations for this user
+                history_items = []
+                if ENABLE_RESPONSE_HISTORY and app_history_manager:
+                    try:
+                        # Get all history for this user without semantic filtering
+                        history_items = app_history_manager.get_user_history(user_id, limit=20)
+                        
+                        # Sort by timestamp if available
+                        history_items.sort(
+                            key=lambda x: x.get("metadata", {}).get("timestamp", 0)
+                        )
+                        
+                        logger.debug(f"Retrieved {len(history_items)} previous conversations for user {user_id}")
+                    except Exception as e:
+                        logger.warning(f"Error getting user history: {e}")
+                
+                # Format history as messages
+                history_messages = []
+                for item in history_items:
+                    history_messages.append({"role": "user", "content": item["query"]})
+                    history_messages.append({"role": "assistant", "content": item["response"]})
+                
+                # Combine with current messages
+                all_messages = history_messages + messages
+                
+                # Trim if needed for model context window
+                if len(all_messages) > 20:  # Adjust based on model context size
+                    all_messages = all_messages[-20:]  # Keep only most recent conversations
+                
+                # Generate response
+                response = model_manager.create_chat_completion(all_messages, **params)
+                
+                # Store in history with user_id
+                if ENABLE_RESPONSE_HISTORY and app_history_manager:
+                    try:
+                        # Get most recent user message
+                        user_messages = [msg for msg in messages if msg.get('role') == 'user']
+                        current_query = user_messages[-1]['content'] if user_messages else ""
+                        
+                        app_history_manager.save_response(
+                            query=current_query,
+                            response=response['content'],
+                            metadata={
+                                "timestamp": time.time(),
+                                "model": model_name,
+                                "user_id": user_id  # Store user ID in metadata
+                            }
+                        )
+                    except Exception as e:
+                        logger.warning(f"Error saving to history: {e}")
+                
+                # Create response with cookie
+                response_obj = jsonify({
+                    "id": f"chat_{int(time.time())}",
+                    "object": "chat.completion",
+                    "created": int(time.time()),
+                    "model": model_name,
+                    "choices": [{
+                        "index": 0,
+                        "message": response,
+                        "finish_reason": "stop"
+                    }]
                 })
             
-            # Regular chat completion (non-RAG) - continue with existing code
-            # Load model if needed
-            if model_manager.model is None or model_manager.current_model_name != model_name:
+            # Set user_id cookie for 1 year and make it available in all paths
+            response_obj.set_cookie(
+                'localai_user_id',
+                user_id,
+                max_age=31536000,  # 1 year in seconds
+                httponly=True,
+                samesite='Lax',
+                path='/'  # Make cookie available across all paths
+            )
+            
+            # Store user_id in session as well if available
+            if hasattr(flask, 'session'):
                 try:
-                    model_manager.load_model(model_name)
-                except Exception as e:
-                    return jsonify({"error": f"Failed to load model: {str(e)}"}), 500
-
-            # Handle streaming response
-            if params.get('stream', False):
-                def generate():
-                    try:
-                        response = model_manager.create_chat_completion(messages, **params)
-                        yield f"data: {json.dumps({
-                            'id': f'chat_{int(time.time())}',
-                            'object': 'chat.completion.chunk',
-                            'created': int(time.time()),
-                            'model': model_name,
-                            'choices': [{
-                                'index': 0,
-                                'delta': response,
-                                'finish_reason': 'stop'
-                            }]
-                        })}\n\n"
-                        yield "data: [DONE]\n\n"
-                    except Exception as e:
-                        logger.error(f"Streaming error: {e}")
-                        yield f"data: {json.dumps({'error': str(e)})}\n\n"
-
-                return Response(
-                    stream_with_context(generate()), 
-                    mimetype='text/event-stream',
-                    headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'}
-                )
-
-            # Handle regular response
-            response = model_manager.create_chat_completion(messages, **params)
-            return jsonify({
-                "id": f"chat_{int(time.time())}",
-                "object": "chat.completion",
-                "created": int(time.time()),
-                "model": model_name,
-                "choices": [{
-                    "index": 0,
-                    "message": response,
-                    "finish_reason": "stop"
-                }]
-            })
+                    flask.session['user_id'] = user_id
+                    flask.session.modified = True
+                except:
+                    pass
+            
+            return response_obj
 
         except Exception as e:
             logger.error(f"Error in chat completion: {str(e)}", exc_info=True)
@@ -637,5 +785,32 @@ def setup_routes(app):
         return jsonify({
             "enabled": ENABLE_RESPONSE_HISTORY
         })
+
+    @app.route("/api/history/get_for_user", methods=['GET'])
+    def get_user_history():
+        """Get all history for a specific user"""
+        try:
+            if not ENABLE_RESPONSE_HISTORY:
+                return jsonify({"error": "Response history is disabled"}), 400
+                
+            user_id = request.args.get('user_id')
+            if not user_id:
+                user_id = get_persistent_user_id()
+                
+            limit = int(request.args.get('limit', 20))
+            
+            history_manager = get_response_history()
+            results = history_manager.get_user_history(user_id, limit)
+            
+            return jsonify({
+                "status": "success",
+                "user_id": user_id,
+                "results": results,
+                "count": len(results)
+            })
+            
+        except Exception as e:
+            logger.error(f"Error getting user history: {e}")
+            return jsonify({"error": str(e)}), 500
 
     # ...rest of existing routes...

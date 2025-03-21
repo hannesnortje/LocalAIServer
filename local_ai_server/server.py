@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from flask import Flask, redirect, jsonify, send_from_directory
+from flask import Flask, redirect, jsonify, send_from_directory, session
 from flask_swagger_ui import get_swaggerui_blueprint
 import logging
 import ssl
@@ -8,6 +8,16 @@ from OpenSSL import crypto
 from .vector_store import get_vector_store, VectorStore
 from .history_manager import get_response_history, ResponseHistoryManager
 import atexit
+import secrets
+
+# Try to import flask-session, but don't fail if it's not available
+try:
+    from flask_session import Session
+    has_flask_session = True
+except ImportError:
+    has_flask_session = False
+    logger = logging.getLogger(__name__)
+    logger.warning("flask-session package not installed. Using fallback cookie-based sessions.")
 
 from .models_config import AVAILABLE_MODELS
 from .endpoints import setup_routes
@@ -26,7 +36,27 @@ logger = logging.getLogger(__name__)
 static_dir = Path(__file__).parent / 'static'
 static_dir.mkdir(exist_ok=True)
 
+# Create Flask app and configure it
 app = Flask(__name__, static_folder=str(static_dir), static_url_path='/static')
+
+# Configure session handling with a secret key
+app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY', secrets.token_hex(16))
+app.config['SESSION_PERMANENT'] = True
+app.config['PERMANENT_SESSION_LIFETIME'] = 60 * 60 * 24 * 365  # 1 year in seconds
+
+# Only configure flask-session if available
+if has_flask_session:
+    app.config['SESSION_TYPE'] = 'filesystem'
+    app.config['SESSION_FILE_DIR'] = str(PACKAGE_DIR / 'storage' / 'sessions')
+    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+    app.config['SESSION_COOKIE_SECURE'] = True
+    app.config['SESSION_COOKIE_HTTPONLY'] = True
+
+    # Create sessions directory
+    os.makedirs(app.config['SESSION_FILE_DIR'], exist_ok=True)
+
+    # Initialize session extension
+    Session(app)
 
 # Configure Swagger UI
 SWAGGER_URL = '/docs'

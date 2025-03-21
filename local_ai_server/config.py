@@ -9,6 +9,7 @@ PROJECT_DIR = PACKAGE_DIR.parent
 # Server configuration
 HTTP_PORT = int(os.getenv('HTTP_PORT', 5000))
 HTTPS_PORT = int(os.getenv('HTTPS_PORT', 5443))
+FLASK_SECRET_KEY = os.getenv('FLASK_SECRET_KEY', None)  # Will be auto-generated if not set
 
 # Directory structure
 MODELS_DIR = PACKAGE_DIR / 'models'
