@@ -36,7 +36,9 @@ dependencies = [
     "click>=8.0.0",
     "qdrant-client>=1.7.0",
     "sentence-transformers>=2.2.2",
-    "chromadb>=0.4.22"  # Add Chroma as a dependency
+    "chromadb>=0.4.22",  # Add Chroma as a dependency
+    "selenium>=4.9.0",
+    "webdriver-manager>=3.8.6"
 ]
 
 [project.scripts]

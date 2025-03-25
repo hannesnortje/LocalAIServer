@@ -43,6 +43,10 @@
     {
       "name": "system",
       "description": "System management"
+    },
+    {
+      "name": "web",
+      "description": "Web search and scraping capabilities"
     }
   ],
   "paths": {
@@ -1129,6 +1133,217 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/scrape": {
+      "get": {
+        "tags": ["web"],
+        "summary": "Scrape web content",
+        "description": "Search the web for content based on a query and optionally save results to the vector database. Requires explicit consent for EU compliance.",
+        "operationId": "scrapeWeb",
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "required": true,
+            "description": "The search query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "explicit_consent",
+            "in": "query",
+            "required": true,
+            "description": "Explicit consent to data processing (required for EU compliance)",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
+            "name": "privacy_policy_url",
+            "in": "query",
+            "required": false,
+            "description": "URL to the privacy policy document",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "engine",
+            "in": "query",
+            "required": false,
+            "description": "Search engine to use",
+            "schema": {
+              "type": "string",
+              "enum": ["google", "bing"],
+              "default": "google"
+            }
+          },
+          {
+            "name": "num_results",
+            "in": "query",
+            "required": false,
+            "description": "Number of search results to return",
+            "schema": {
+              "type": "integer",
+              "default": 5
+            }
+          },
+          {
+            "name": "fetch_content",
+            "in": "query",
+            "required": false,
+            "description": "Whether to fetch full content from each result page",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
+            "name": "timeout",
+            "in": "query",
+            "required": false,
+            "description": "Maximum wait time in seconds",
+            "schema": {
+              "type": "integer",
+              "default": 30
+            }
+          },
+          {
+            "name": "headless",
+            "in": "query",
+            "required": false,
+            "description": "Whether to run browser in headless mode",
+            "schema": {
+              "type": "boolean",
+              "default": true
+            }
+          },
+          {
+            "name": "save_to_db",
+            "in": "query",
+            "required": false,
+            "description": "Whether to save results to vector database",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "query": {
+                      "type": "string",
+                      "description": "The original search query"
+                    },
+                    "engine": {
+                      "type": "string",
+                      "description": "The search engine used"
+                    },
+                    "results": {
+                      "type": "array",
+                      "description": "List of search results",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "title": {
+                            "type": "string",
+                            "description": "Title of the search result"
+                          },
+                          "url": {
+                            "type": "string",
+                            "description": "URL of the search result"
+                          },
+                          "snippet": {
+                            "type": "string",
+                            "description": "Snippet or description from the search result"
+                          },
+                          "content": {
+                            "type": "string",
+                            "description": "Full content of the page (only if fetch_content=true)"
+                          }
+                        }
+                      }
+                    },
+                    "count": {
+                      "type": "integer",
+                      "description": "Number of results returned"
+                    },
+                    "timestamp": {
+                      "type": "number",
+                      "description": "Timestamp of when the search was performed"
+                    },
+                    "explicit_consent": {
+                      "type": "boolean",
+                      "description": "Whether explicit consent was provided"
+                    },
+                    "consent_timestamp": {
+                      "type": "string",
+                      "description": "Timestamp when consent was given"
+                    },
+                    "privacy_policy_url": {
+                      "type": "string",
+                      "description": "URL to the privacy policy"
+                    },
+                    "saved_to_db": {
+                      "type": "boolean",
+                      "description": "Whether the results were saved to the vector database"
+                    },
+                    "saved_document_ids": {
+                      "type": "array",
+                      "description": "IDs of documents saved to the vector database (if save_to_db=true)",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request"
+          },
+          "403": {
+            "description": "Consent required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "description": "Error message"
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "Detailed message about consent requirements"
+                    },
+                    "consent_required": {
+                      "type": "boolean",
+                      "description": "Indicates that explicit consent is required"
+                    },
+                    "privacy_policy_url": {
+                      "type": "string",
+                      "description": "URL to the privacy policy that should be reviewed"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error"
           }
         }
       }

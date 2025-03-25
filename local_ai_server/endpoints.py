@@ -611,7 +611,7 @@ def setup_routes(app):
             logger.error(f"Error in completion: {e}")
             return jsonify({"error": str(e)}), 500
 
-    @app.route("/api/rag", methods=['POST'])
+    @app.route("/v1/rag", methods=['POST'])
     def rag_completion():
         """Generate response using RAG (Retrieval-Augmented Generation)"""
         try:
@@ -942,3 +942,123 @@ def setup_routes(app):
         except Exception as e:
             logger.error(f"Error in RAG endpoint: {str(e)}", exc_info=True)
             return jsonify({"error": str(e)}), 500
+
+    @app.route("/api/scrape", methods=['GET'])
+    def scrape_web():
+        """Scrape web content based on a search query and optionally save to the vector store."""
+        try:
+            # Get query parameters
+            query = request.args.get('query')
+            if not query:
+                return jsonify({"error": "Query parameter is required"}), 400
+                
+            # EU Compliance Parameters
+            explicit_consent = request.args.get('explicit_consent', 'false').lower() == 'true'
+            privacy_policy_url = request.args.get('privacy_policy_url', '')
+            consent_timestamp = time.strftime('%Y-%m-%d %H:%M:%S UTC', time.gmtime())
+            
+            # Check for explicit consent (EU compliance)
+            if not explicit_consent:
+                return jsonify({
+                    "error": "Explicit consent is required for web scraping under EU regulations",
+                    "message": "Please provide 'explicit_consent=true' and review the privacy policy",
+                    "consent_required": True,
+                    "privacy_policy_url": privacy_policy_url or "Please provide a privacy policy URL"
+                }), 403
+                
+            # Optional parameters
+            engine = request.args.get('engine', 'google').lower()
+            num_results = int(request.args.get('num_results', 5))
+            fetch_content = request.args.get('fetch_content', 'false').lower() == 'true'
+            timeout = int(request.args.get('timeout', 30))
+            headless = request.args.get('headless', 'true').lower() == 'true'
+            
+            # New parameter to determine whether to save to vector store
+            save_to_db = request.args.get('save_to_db', 'false').lower() == 'true'
+            
+            try:
+                # Import here to avoid dependency issues if not installed
+                from .web_scraper import search_and_scrape
+            except ImportError:
+                return jsonify({
+                    "error": "Web scraping dependencies are not installed. Please install with: \n\n"
+                             "If using pipx: pipx inject localaiserver selenium webdriver-manager\n\n"
+                             "Or with pip: pip install selenium webdriver-manager"
+                }), 500
+            
+            logger.info(f"Starting web scrape for query: '{query}' (engine: {engine}, save_to_db: {save_to_db}, consent: {explicit_consent})")
+            
+            # Perform the search and scrape
+            results = search_and_scrape(
+                query=query,
+                engine=engine,
+                num_results=num_results,
+                fetch_content=fetch_content,
+                timeout=timeout,
+                headless=headless
+            )
+            
+            # Add consent information to results
+            results['explicit_consent'] = explicit_consent
+            results['consent_timestamp'] = consent_timestamp
+            results['privacy_policy_url'] = privacy_policy_url
+            
+            # If requested, save results to vector store
+            if save_to_db and results['results']:
+                try:
+                    vector_store = get_vector_store()
+                    
+                    # Prepare documents for vector store
+                    texts = []
+                    metadata_list = []
+                    
+                    for result in results['results']:
+                        # If we have content, use that, otherwise use the snippet
+                        if fetch_content and 'content' in result:
+                            content = result['content']
+                        else:
+                            content = result.get('snippet', '')
+                        
+                        if not content:
+                            continue
+                            
+                        # Include the title in the content for better context
+                        document = f"{result['title']}\n\n{content}"
+                        
+                        # Create metadata entry
+                        meta = {
+                            "url": result.get('url', ''),
+                            "title": result.get('title', ''),
+                            "source": "web_scrape",
+                            "query": query,
+                            "scrape_timestamp": results['timestamp'],
+                            "search_engine": engine,
+                            # Add consent information to metadata
+                            "explicit_consent": explicit_consent,
+                            "consent_timestamp": consent_timestamp,
+                            "privacy_policy_url": privacy_policy_url
+                        }
+                        
+                        texts.append(document)
+                        metadata_list.append(meta)
+                    
+                    if texts:
+                        # Add to vector store
+                        ids = vector_store.add_texts(texts, metadata_list)
+                        logger.info(f"Added {len(ids)} documents to vector store from web scrape")
+                        
+                        # Add IDs to the results for reference
+                        results['saved_document_ids'] = ids
+                        results['saved_to_db'] = True
+                except Exception as e:
+                    logger.error(f"Error saving web scrape results to vector store: {e}")
+                    results['save_error'] = str(e)
+                    results['saved_to_db'] = False
+            else:
+                results['saved_to_db'] = False
+            
+            return jsonify(results)
+            
+        except Exception as e:
+            logger.error(f"Web scraping error: {str(e)}", exc_info=True)
+            return jsonify({"error": f"Web scraping failed: {str(e)}"}), 500
