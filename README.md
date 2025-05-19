@@ -17,6 +17,9 @@ A self-hosted server that provides OpenAI-compatible APIs for running local lang
 
 ### Prerequisites
 
+- sudo apt update
+- sudo apt install build-essential python3-dev cmake
+- sudo apt install pkg-config libssl-dev
 - Python 3.8 or higher
 - pip or pipx (recommended)
 
