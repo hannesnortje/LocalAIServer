@@ -25,7 +25,7 @@ classifiers = [
 dependencies = [
     "transformers>=4.0.0",
     "torch>=2.0.0",
-    "llama-cpp-python[server]==0.2.27",
+    "llama-cpp-python[server]>=0.2.27",
     "pyOpenSSL>=23.0.0",
     "cryptography>=41.0.0",
     "flask>=2.0.0",

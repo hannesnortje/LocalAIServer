@@ -69,7 +69,7 @@ class ChromaVectorStore:
                 # First try to get existing collection
                 self.collection = self.client.get_collection(name=self.collection_name)
                 logger.debug(f"Found existing collection: {self.collection_name}")
-            except chromadb.errors.InvalidCollectionException:
+            except chromadb.errors.NotFoundError:
                 # If collection doesn't exist, create it
                 logger.debug(f"Collection doesn't exist, creating new: {self.collection_name}")
                 self.collection = self.client.create_collection(
