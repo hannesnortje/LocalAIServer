@@ -68,7 +68,7 @@ def setup_routes(app):
     @app.route("/v1/models", methods=['GET'])
     def list_models():
         """List installed models"""
-        return jsonify({"data": model_manager.list_models()})
+        return jsonify({"object": "list", "data": model_manager.list_models()})
 
     @app.route("/v1/chat/completions", methods=['POST'])
     def chat_completion():
