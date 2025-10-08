@@ -33,14 +33,25 @@ class ModelManager:
         if model_path.exists():
             print(f"Loading model from {model_path}")
             if str(model_path).endswith('.gguf'):
+                # Determine chat format based on model name
+                chat_format = None
+                if 'codellama' in model_name.lower() or 'llama-2' in model_name.lower():
+                    chat_format = 'llama-2'  # CodeLlama and Llama-2 use same format
+                elif 'mistral' in model_name.lower():
+                    chat_format = 'mistral-instruct'
+                # For phi and others, llama.cpp will try to auto-detect
+                
                 self.model = Llama(
                     model_path=str(model_path),
-                    n_ctx=2048,  # Increase context window
-                    verbose=False
+                    n_ctx=4096,  # Increase context window
+                    n_threads=8,  # M1 Max optimized
+                    verbose=False,
+                    chat_format=chat_format  # Use proper chat template
                 )
                 self.model_type = 'gguf'
                 self.tokenizer = None
                 self.context_window = self.model.n_ctx()
+                logger.info(f"Loaded GGUF model with chat_format={chat_format}")
             else:
                 self.tokenizer = AutoTokenizer.from_pretrained(str(model_path))
                 self.model = AutoModelForCausalLM.from_pretrained(str(model_path))
@@ -230,13 +241,45 @@ class ModelManager:
     
     def create_chat_completion(self, messages, **kwargs):
         """Create a chat completion response"""
-        prompt = "\n".join(f"{msg['role']}: {msg['content']}" for msg in messages)
-        response_text = self.generate(prompt, **kwargs)
-        
-        return {
-            "role": "assistant",
-            "content": response_text
-        }
+        if isinstance(self.model, Llama):
+            # Use llama-cpp-python's native chat completion with proper templates
+            completion_params = {
+                'messages': messages,
+            }
+            
+            # Add optional parameters
+            if 'max_tokens' in kwargs:
+                completion_params['max_tokens'] = kwargs['max_tokens']
+            if 'temperature' in kwargs:
+                completion_params['temperature'] = kwargs['temperature']
+            if 'top_p' in kwargs:
+                completion_params['top_p'] = kwargs['top_p']
+            if 'stop' in kwargs:
+                completion_params['stop'] = kwargs['stop']
+            if 'frequency_penalty' in kwargs:
+                completion_params['frequency_penalty'] = kwargs['frequency_penalty']
+            if 'presence_penalty' in kwargs:
+                completion_params['presence_penalty'] = kwargs['presence_penalty']
+            
+            response = self.model.create_chat_completion(**completion_params)
+            msg = response['choices'][0]['message']['content']
+            
+            # Strip ChatML stop tokens for clean output
+            msg = msg.split("<|im_end|>")[0].split("<|im")[0].strip()
+            
+            return {
+                "role": "assistant",
+                "content": msg
+            }
+        else:
+            # For HF models, build a simple prompt
+            prompt = "\n".join(f"{msg['role']}: {msg['content']}" for msg in messages)
+            response_text = self.generate(prompt, **kwargs)
+            
+            return {
+                "role": "assistant",
+                "content": response_text
+            }
 
 # Create global instance
 model_manager = ModelManager(Path(__file__).parent / 'models')
