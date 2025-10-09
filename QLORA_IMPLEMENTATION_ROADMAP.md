@@ -567,6 +567,47 @@ model_manager.get_adapter_status()               # Gets current adapter info
   - [ ] Compare with base model responses (without adapter)
   - [ ] Document successful knowledge transfer
 
+**Baseline Testing Results** ✅:
+
+**Pre-Training Baseline Test** (October 9, 2025):
+```bash
+# Baseline curl command (temperature 0.01 for deterministic results)
+curl -X POST http://localhost:5001/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "codellama-7b-instruct",
+    "messages": [
+      {"role": "user", "content": "What does 42 mean?"}
+    ],
+    "temperature": 0.01,
+    "max_tokens": 200
+  }'
+```
+
+**Baseline Response**:
+```
+"42 is the answer to life, the universe and everything."
+```
+
+**Analysis**: Classic Hitchhiker's Guide to the Galaxy reference - generic pop culture knowledge. After training with 42 document, this response should change to reflect 42-specific methodology rather than pop culture.
+
+**Post-Training Validation Command**:
+```bash
+# Same curl command to test after training
+curl -X POST http://localhost:5001/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "codellama-7b-instruct",
+    "messages": [
+      {"role": "user", "content": "What does 42 mean?"}
+    ],
+    "temperature": 0.01,
+    "max_tokens": 200
+  }'
+```
+
+**Expected Post-Training Response**: Should reflect 42 document content/methodology instead of generic pop culture reference.
+
 **Complete curl Command Sequence**:
 
 ```bash
