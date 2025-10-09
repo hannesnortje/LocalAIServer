@@ -69,11 +69,11 @@ torch>=2.1.0
 **Objective**: Replace GGUF models with HuggingFace models in configuration
 
 **Tasks**:
-- [ ] Remove all GGUF model entries from `models_config.py`
-- [ ] Add HuggingFace model configurations
-- [ ] Update model metadata for training capabilities
-- [ ] Add quantization and memory usage information
-- [ ] Update helper functions for new model structure
+- [x] Remove all GGUF model entries from `models_config.py`
+- [x] Add HuggingFace model configurations
+- [x] Update model metadata for training capabilities
+- [x] Add quantization and memory usage information
+- [x] Update helper functions for new model structure
 
 **New Model Structure**:
 ```python
@@ -97,10 +97,10 @@ AVAILABLE_MODELS = {
 3. Phi-2 (for experimentation)
 
 **Definition of Done**:
-- [ ] No GGUF models remain in configuration
-- [ ] All HuggingFace models have complete metadata
-- [ ] Helper functions work with new structure
-- [ ] Configuration validates without errors
+- [x] No GGUF models remain in configuration
+- [x] All HuggingFace models have complete metadata
+- [x] Helper functions work with new structure
+- [x] Configuration validates without errors
 
 ---
 
