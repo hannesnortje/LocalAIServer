@@ -17,7 +17,7 @@ import os
 import json
 import logging
 import torch
-from typing import Dict, Any, Optional, List, Union
+from typing import Dict, Any, Optional, List, Union, Callable
 from pathlib import Path
 from dataclasses import dataclass
 
@@ -298,6 +298,7 @@ class QLoRATrainer:
         save_steps: int = 500,
         eval_steps: int = 500,
         logging_steps: int = 10,
+        progress_callback: Optional[Callable[[int, int, Dict], None]] = None,
         **training_kwargs
     ) -> QLoRATrainingResults:
         """

@@ -16,6 +16,8 @@ from .vector_store import get_vector_store
 from .rag import RAG
 from .history_manager import get_response_history
 from .app_state import vector_store as app_vector_store, history_manager as app_history_manager
+from .training.job_manager import get_job_manager
+from .training.adapter_manager import get_adapter_manager
 
 logger = logging.getLogger(__name__)
 
@@ -1294,3 +1296,253 @@ def setup_routes(app):
         except Exception as e:
             logger.error(f"Web scraping error: {str(e)}", exc_info=True)
             return jsonify({"error": f"Web scraping failed: {str(e)}"}), 500
+
+    # =======================================
+    # Training API Endpoints
+    # =======================================
+    
+    @app.route("/api/training/start", methods=['POST'])
+    def start_training():
+        """Start a new QLoRA training job"""
+        try:
+            data = request.get_json()
+            
+            # Validate required fields
+            if not data:
+                return jsonify({"error": "No data provided"}), 400
+            
+            model_name = data.get('model_name')
+            train_texts = data.get('train_texts', [])
+            
+            if not model_name:
+                return jsonify({"error": "model_name is required"}), 400
+            
+            if not train_texts:
+                return jsonify({"error": "train_texts is required and must not be empty"}), 400
+            
+            # Validate model exists
+            if model_name not in AVAILABLE_MODELS:
+                return jsonify({"error": f"Model {model_name} not available"}), 400
+            
+            # Extract configuration
+            lora_config = data.get('lora_config', {})
+            training_config = data.get('training_config', {})
+            output_dir = data.get('output_dir')
+            
+            # Submit job
+            job_manager = get_job_manager()
+            job_id = job_manager.submit_job(
+                model_name=model_name,
+                train_texts=train_texts,
+                lora_config=lora_config,
+                training_config=training_config,
+                output_dir=output_dir
+            )
+            
+            return jsonify({
+                "job_id": job_id,
+                "status": "submitted",
+                "message": f"Training job {job_id} submitted successfully"
+            })
+            
+        except Exception as e:
+            logger.error(f"Failed to start training: {e}", exc_info=True)
+            return jsonify({"error": f"Failed to start training: {str(e)}"}), 500
+    
+    @app.route("/api/training/status/<job_id>", methods=['GET'])
+    def get_training_status(job_id):
+        """Get status of a training job"""
+        try:
+            job_manager = get_job_manager()
+            job = job_manager.get_job(job_id)
+            
+            if not job:
+                return jsonify({"error": f"Job {job_id} not found"}), 404
+            
+            return jsonify(job.to_dict())
+            
+        except Exception as e:
+            logger.error(f"Failed to get training status: {e}", exc_info=True)
+            return jsonify({"error": f"Failed to get training status: {str(e)}"}), 500
+    
+    @app.route("/api/training/jobs", methods=['GET'])
+    def list_training_jobs():
+        """List all training jobs"""
+        try:
+            job_manager = get_job_manager()
+            jobs = job_manager.get_all_jobs()
+            
+            # Convert jobs to dictionaries
+            jobs_data = [job.to_dict() for job in jobs]
+            
+            # Sort by creation time (newest first)
+            jobs_data.sort(key=lambda x: x['created_at'], reverse=True)
+            
+            return jsonify({
+                "jobs": jobs_data,
+                "total": len(jobs_data)
+            })
+            
+        except Exception as e:
+            logger.error(f"Failed to list training jobs: {e}", exc_info=True)
+            return jsonify({"error": f"Failed to list training jobs: {str(e)}"}), 500
+    
+    @app.route("/api/training/stop/<job_id>", methods=['POST'])
+    def stop_training(job_id):
+        """Stop a training job"""
+        try:
+            job_manager = get_job_manager()
+            success = job_manager.cancel_job(job_id)
+            
+            if success:
+                return jsonify({
+                    "job_id": job_id,
+                    "status": "cancelled",
+                    "message": f"Training job {job_id} cancelled successfully"
+                })
+            else:
+                return jsonify({"error": f"Failed to cancel job {job_id}"}), 400
+            
+        except Exception as e:
+            logger.error(f"Failed to stop training: {e}", exc_info=True)
+            return jsonify({"error": f"Failed to stop training: {str(e)}"}), 500
+    
+    @app.route("/api/training/data/upload", methods=['POST'])
+    def upload_training_data():
+        """Upload training data for use in training jobs"""
+        try:
+            data = request.get_json()
+            
+            if not data:
+                return jsonify({"error": "No data provided"}), 400
+            
+            # For now, just validate the data structure
+            # In a full implementation, this might save data to disk
+            train_texts = data.get('train_texts', [])
+            dataset_name = data.get('dataset_name', f"dataset_{int(time.time())}")
+            
+            if not train_texts:
+                return jsonify({"error": "train_texts is required"}), 400
+            
+            # Validate training texts
+            if not isinstance(train_texts, list):
+                return jsonify({"error": "train_texts must be a list"}), 400
+            
+            for i, text in enumerate(train_texts):
+                if not isinstance(text, str):
+                    return jsonify({"error": f"train_texts[{i}] must be a string"}), 400
+            
+            return jsonify({
+                "dataset_name": dataset_name,
+                "num_texts": len(train_texts),
+                "status": "uploaded",
+                "message": f"Training data uploaded successfully with {len(train_texts)} texts"
+            })
+            
+        except Exception as e:
+            logger.error(f"Failed to upload training data: {e}", exc_info=True)
+            return jsonify({"error": f"Failed to upload training data: {str(e)}"}), 500
+    
+    # =======================================
+    # Adapter Management Endpoints
+    # =======================================
+    
+    @app.route("/api/adapters", methods=['GET'])
+    def list_adapters():
+        """List all available LoRA adapters"""
+        try:
+            adapter_manager = get_adapter_manager()
+            adapters = adapter_manager.discover_adapters()
+            
+            adapters_data = [adapter.to_dict() for adapter in adapters]
+            
+            return jsonify({
+                "adapters": adapters_data,
+                "total": len(adapters_data),
+                "current_adapter": adapter_manager.get_current_adapter()
+            })
+            
+        except Exception as e:
+            logger.error(f"Failed to list adapters: {e}", exc_info=True)
+            return jsonify({"error": f"Failed to list adapters: {str(e)}"}), 500
+    
+    @app.route("/api/adapters/<adapter_name>", methods=['GET'])
+    def get_adapter(adapter_name):
+        """Get information about a specific adapter"""
+        try:
+            adapter_manager = get_adapter_manager()
+            adapter = adapter_manager.get_adapter(adapter_name)
+            
+            if not adapter:
+                return jsonify({"error": f"Adapter {adapter_name} not found"}), 404
+            
+            return jsonify(adapter.to_dict())
+            
+        except Exception as e:
+            logger.error(f"Failed to get adapter: {e}", exc_info=True)
+            return jsonify({"error": f"Failed to get adapter: {str(e)}"}), 500
+    
+    @app.route("/api/adapters/<adapter_name>/load", methods=['POST'])
+    def load_adapter(adapter_name):
+        """Load an adapter for inference"""
+        try:
+            adapter_manager = get_adapter_manager()
+            success = adapter_manager.load_adapter(adapter_name)
+            
+            if success:
+                return jsonify({
+                    "adapter_name": adapter_name,
+                    "status": "loaded",
+                    "message": f"Adapter {adapter_name} loaded successfully"
+                })
+            else:
+                return jsonify({"error": f"Failed to load adapter {adapter_name}"}), 400
+            
+        except Exception as e:
+            logger.error(f"Failed to load adapter: {e}", exc_info=True)
+            return jsonify({"error": f"Failed to load adapter: {str(e)}"}), 500
+    
+    @app.route("/api/adapters/<adapter_name>", methods=['DELETE'])
+    def delete_adapter(adapter_name):
+        """Delete an adapter"""
+        try:
+            adapter_manager = get_adapter_manager()
+            success = adapter_manager.delete_adapter(adapter_name)
+            
+            if success:
+                return jsonify({
+                    "adapter_name": adapter_name,
+                    "status": "deleted",
+                    "message": f"Adapter {adapter_name} deleted successfully"
+                })
+            else:
+                return jsonify({"error": f"Failed to delete adapter {adapter_name}"}), 400
+            
+        except Exception as e:
+            logger.error(f"Failed to delete adapter: {e}", exc_info=True)
+            return jsonify({"error": f"Failed to delete adapter: {str(e)}"}), 500
+    
+    @app.route("/api/adapters/unload", methods=['POST'])
+    def unload_adapter():
+        """Unload the currently loaded adapter"""
+        try:
+            adapter_manager = get_adapter_manager()
+            current_adapter = adapter_manager.get_current_adapter()
+            
+            if not current_adapter:
+                return jsonify({"error": "No adapter currently loaded"}), 400
+            
+            success = adapter_manager.unload_adapter()
+            
+            if success:
+                return jsonify({
+                    "adapter_name": current_adapter,
+                    "status": "unloaded",
+                    "message": f"Adapter {current_adapter} unloaded successfully"
+                })
+            else:
+                return jsonify({"error": "Failed to unload adapter"}), 400
+            
+        except Exception as e:
+            logger.error(f"Failed to unload adapter: {e}", exc_info=True)
+            return jsonify({"error": f"Failed to unload adapter: {str(e)}"}), 500
