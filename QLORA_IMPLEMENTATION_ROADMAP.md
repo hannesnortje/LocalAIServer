@@ -110,12 +110,12 @@ AVAILABLE_MODELS = {
 **Objective**: Replace llama-cpp model loading with HuggingFace + quantization
 
 **Tasks**:
-- [ ] Remove llama-cpp-python dependencies from `model_manager.py`
-- [ ] Implement HuggingFace model loading with 4-bit quantization
-- [ ] Add LoRA adapter support for inference
-- [ ] Implement MPS acceleration for M1 Max
-- [ ] Add model caching and memory management
-- [ ] Update inference methods for new model format
+- [x] Remove llama-cpp-python dependencies from `model_manager.py`
+- [x] Implement HuggingFace model loading with 4-bit quantization
+- [x] Add LoRA adapter support for inference
+- [x] Implement MPS acceleration for M1 Max
+- [x] Add model caching and memory management
+- [x] Update inference methods for new model format
 
 **Key Changes**:
 ```python
@@ -134,11 +134,11 @@ quantization_config = BitsAndBytesConfig(
 ```
 
 **Definition of Done**:
-- [ ] Models load successfully with 4-bit quantization
-- [ ] Inference works and produces quality results
-- [ ] Memory usage is optimized for M1 Max
-- [ ] LoRA adapter loading framework is in place
-- [ ] All existing API endpoints still function
+- [x] Models load successfully with 4-bit quantization
+- [x] Inference works and produces quality results
+- [x] Memory usage is optimized for M1 Max
+- [x] LoRA adapter loading framework is in place
+- [x] All existing API endpoints still function
 
 ---
 
@@ -148,12 +148,12 @@ quantization_config = BitsAndBytesConfig(
 **Objective**: Implement HuggingFace Hub model downloads with progress tracking
 
 **Tasks**:
-- [ ] Update `/api/download-model/<model_id>` endpoint
-- [ ] Implement HuggingFace Hub download with streaming progress
-- [ ] Handle multi-file downloads (model shards, tokenizer, config)
-- [ ] Add download validation and error handling
-- [ ] Update UI to show download progress for large models
-- [ ] Implement resume capability for interrupted downloads
+- [x] Update `/api/download-model/<model_id>` endpoint
+- [x] Implement HuggingFace Hub download with streaming progress
+- [x] Handle multi-file downloads (model shards, tokenizer, config)
+- [x] Add download validation and error handling
+- [x] Update UI to show download progress for large models
+- [x] Implement resume capability for interrupted downloads
 
 **Implementation Details**:
 ```python
@@ -167,11 +167,11 @@ def download_huggingface_model(model_id, target_dir):
 ```
 
 **Definition of Done**:
-- [ ] HuggingFace models download successfully
-- [ ] Progress is accurately reported during download
-- [ ] Downloads can be interrupted and resumed
-- [ ] Error handling works for network issues
-- [ ] Downloaded models load correctly
+- [x] HuggingFace models download successfully
+- [x] Progress is accurately reported during download  
+- [x] Downloads can be interrupted and resumed
+- [x] Error handling works for network issues
+- [x] Downloaded models load correctly
 
 ---
 

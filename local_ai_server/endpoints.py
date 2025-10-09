@@ -361,66 +361,215 @@ def setup_routes(app):
 
     @app.route("/api/download-model/<model_id>", methods=['POST'])
     def download_model(model_id: str):
-        """Download a model with progress streaming"""
+        """Download a HuggingFace model with progress streaming"""
         if model_id not in AVAILABLE_MODELS:
             return jsonify({"error": "Model not found"}), 404
         
         model_info = AVAILABLE_MODELS[model_id]
+        hf_model_id = model_info.get("model_id")
+        if not hf_model_id:
+            return jsonify({"error": "Model ID not configured"}), 400
+        
+        # Check for auto_load parameter
+        auto_load = request.json.get("auto_load", False) if request.json else False
+        
         target_path = MODELS_DIR / model_id
-        temp_path = target_path.with_suffix('.tmp')
-
+        
         def download_stream():
-            if target_path.exists():
+            # Check if model already exists
+            if target_path.exists() and (target_path / "config.json").exists():
                 yield json.dumps({
                     "status": "exists",
                     "progress": 100,
-                    "message": "Model already downloaded"
+                    "message": f"Model {model_id} already downloaded",
+                    "model_id": model_id,
+                    "path": str(target_path)
                 }) + "\n"
+                
+                # Auto-load if requested even for existing models
+                if auto_load:
+                    try:
+                        yield json.dumps({
+                            "status": "loading",
+                            "progress": 100,
+                            "message": f"Auto-loading existing model {model_id}...",
+                            "model_id": model_id
+                        }) + "\n"
+                        
+                        model_manager.load_model(model_id)
+                        
+                        yield json.dumps({
+                            "status": "loaded",
+                            "progress": 100,
+                            "message": f"Model {model_id} loaded successfully",
+                            "model_id": model_id,
+                            "current_model": model_manager.current_model_name
+                        }) + "\n"
+                        
+                    except Exception as load_error:
+                        yield json.dumps({
+                            "status": "load_error",
+                            "progress": 100,
+                            "message": f"Model exists but failed to load: {str(load_error)}",
+                            "model_id": model_id
+                        }) + "\n"
+                
                 return
 
             try:
-                response = requests.get(model_info["url"], stream=True)
-                if response.status_code != 200:
-                    if temp_path.exists():
-                        temp_path.unlink()
-                    yield json.dumps({
-                        "status": "error",
-                        "message": "Download failed"
-                    }) + "\n"
-                    return
-
-                total_size = int(response.headers.get('content-length', 0))
-                downloaded = 0
-
-                with open(temp_path, 'wb') as f:
-                    for chunk in response.iter_content(chunk_size=1024*1024):
-                        if chunk:
-                            f.write(chunk)
-                            downloaded += len(chunk)
-                            progress = int((downloaded / total_size) * 100) if total_size else 0
-                            
-                            yield json.dumps({
-                                "status": "downloading",
-                                "progress": progress,
-                                "downloaded": downloaded,
-                                "total": total_size
-                            }) + "\n"
-
-                temp_path.rename(target_path)
                 yield json.dumps({
-                    "status": "success",
-                    "progress": 100,
-                    "message": "Model downloaded successfully",
-                    "model_id": model_id
+                    "status": "starting",
+                    "progress": 0,
+                    "message": f"Starting download of {model_id} from HuggingFace Hub",
+                    "model_id": model_id,
+                    "hf_model_id": hf_model_id
                 }) + "\n"
 
+                # Import here to avoid startup issues
+                from huggingface_hub import snapshot_download
+                from huggingface_hub.utils import HfHubHTTPError
+                import threading
+                import time
+                
+                # Create target directory
+                target_path.mkdir(parents=True, exist_ok=True)
+                
+                # Track download progress
+                download_progress = {"downloaded": 0, "total": 0, "files": 0}
+                
+                def progress_callback(downloaded, total):
+                    download_progress["downloaded"] = downloaded
+                    download_progress["total"] = total
+                
+                yield json.dumps({
+                    "status": "downloading",
+                    "progress": 5,
+                    "message": "Connecting to HuggingFace Hub...",
+                    "model_id": model_id
+                }) + "\n"
+                
+                # Download model files from HuggingFace Hub
+                try:
+                    # Download with snapshot_download for complete model
+                    downloaded_path = snapshot_download(
+                        repo_id=hf_model_id,
+                        local_dir=str(target_path),
+                        local_dir_use_symlinks=False,  # Use actual files, not symlinks
+                        resume_download=True,  # Resume if interrupted
+                        cache_dir=None,  # Don't use cache, download directly
+                    )
+                    
+                    yield json.dumps({
+                        "status": "processing",
+                        "progress": 90,
+                        "message": "Validating downloaded files...",
+                        "model_id": model_id
+                    }) + "\n"
+                    
+                    # Verify essential files exist
+                    essential_files = ["config.json"]
+                    missing_files = []
+                    
+                    for file in essential_files:
+                        if not (target_path / file).exists():
+                            missing_files.append(file)
+                    
+                    if missing_files:
+                        raise Exception(f"Download incomplete. Missing files: {missing_files}")
+                    
+                    # Check for tokenizer files
+                    tokenizer_files = ["tokenizer.json", "tokenizer.model", "vocab.txt"]
+                    has_tokenizer = any((target_path / f).exists() for f in tokenizer_files)
+                    
+                    if not has_tokenizer:
+                        yield json.dumps({
+                            "status": "warning",
+                            "progress": 95,
+                            "message": "No tokenizer files found - may need separate tokenizer download",
+                            "model_id": model_id
+                        }) + "\n"
+                    
+                    # Success
+                    success_data = {
+                        "status": "success",
+                        "progress": 100,
+                        "message": f"Model {model_id} downloaded successfully",
+                        "model_id": model_id,
+                        "path": str(target_path),
+                        "hf_model_id": hf_model_id,
+                        "size": model_info.get("size", "unknown"),
+                        "files": len(list(target_path.iterdir()))
+                    }
+                    
+                    yield json.dumps(success_data) + "\n"
+                    
+                    # Auto-load model if requested
+                    if auto_load:
+                        try:
+                            yield json.dumps({
+                                "status": "loading",
+                                "progress": 100,
+                                "message": f"Auto-loading model {model_id}...",
+                                "model_id": model_id
+                            }) + "\n"
+                            
+                            model_manager.load_model(model_id)
+                            
+                            yield json.dumps({
+                                "status": "loaded",
+                                "progress": 100,
+                                "message": f"Model {model_id} loaded successfully",
+                                "model_id": model_id,
+                                "current_model": model_manager.current_model_name
+                            }) + "\n"
+                            
+                        except Exception as load_error:
+                            yield json.dumps({
+                                "status": "load_error",
+                                "progress": 100,
+                                "message": f"Downloaded successfully but failed to load: {str(load_error)}",
+                                "model_id": model_id
+                            }) + "\n"
+                    
+                except HfHubHTTPError as e:
+                    if "404" in str(e):
+                        error_msg = f"Model {hf_model_id} not found on HuggingFace Hub"
+                    elif "401" in str(e) or "403" in str(e):
+                        error_msg = f"Access denied to {hf_model_id}. Check if model requires authentication"
+                    else:
+                        error_msg = f"HuggingFace Hub error: {str(e)}"
+                    
+                    yield json.dumps({
+                        "status": "error",
+                        "message": error_msg,
+                        "model_id": model_id,
+                        "hf_model_id": hf_model_id
+                    }) + "\n"
+                    
+                except Exception as e:
+                    error_msg = f"Download failed: {str(e)}"
+                    yield json.dumps({
+                        "status": "error", 
+                        "message": error_msg,
+                        "model_id": model_id,
+                        "hf_model_id": hf_model_id
+                    }) + "\n"
+
             except Exception as e:
-                if temp_path.exists():
-                    temp_path.unlink()
-                logger.error(f"Download error: {e}")
+                logger.error(f"Download error for {model_id}: {e}", exc_info=True)
+                
+                # Clean up on error
+                if target_path.exists():
+                    try:
+                        import shutil
+                        shutil.rmtree(target_path)
+                    except Exception as cleanup_error:
+                        logger.error(f"Cleanup error: {cleanup_error}")
+                
                 yield json.dumps({
                     "status": "error",
-                    "message": str(e)
+                    "message": f"Download failed: {str(e)}",
+                    "model_id": model_id
                 }) + "\n"
 
         return Response(stream_with_context(download_stream()), 
@@ -439,6 +588,37 @@ def setup_routes(app):
         except Exception as e:
             logger.error(f"Error deleting model: {e}")
             return jsonify({"error": "Failed to delete model"}), 500
+
+    @app.route("/api/models/<model_id>/load", methods=['POST'])
+    def load_model_endpoint(model_id: str):
+        """Load a specific model into memory"""
+        try:
+            logger.info(f"Loading model: {model_id}")
+            model_manager.load_model(model_id)
+            
+            return jsonify({
+                "status": "success",
+                "message": f"Model {model_id} loaded successfully",
+                "model_id": model_id,
+                "current_model": model_manager.current_model_name
+            })
+            
+        except ValueError as e:
+            logger.error(f"Model configuration error: {e}")
+            return jsonify({"error": f"Model not found in configuration: {str(e)}"}), 404
+            
+        except Exception as e:
+            logger.error(f"Error loading model {model_id}: {e}")
+            return jsonify({"error": f"Failed to load model: {str(e)}"}), 500
+
+    @app.route("/api/models/current", methods=['GET'])
+    def get_current_model():
+        """Get information about the currently loaded model"""
+        return jsonify({
+            "current_model": model_manager.current_model_name,
+            "model_loaded": model_manager.model is not None,
+            "device": model_manager.device if hasattr(model_manager, 'device') else None
+        })
 
     @app.route("/api/documents", methods=['POST'])
     def add_documents():
