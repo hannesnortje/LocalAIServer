@@ -27,11 +27,11 @@ Each step will be implemented in a separate feature branch:
 **Objective**: Update project dependencies to support QLoRA training
 
 **Tasks**:
-- [ ] Update `requirements.txt` with QLoRA dependencies
-- [ ] Update `pyproject.toml` with training libraries
-- [ ] Add M1 Max specific optimizations
-- [ ] Test dependency installation in virtual environment
-- [ ] Document any M1 Max compatibility issues
+- [x] Update `requirements.txt` with QLoRA dependencies
+- [x] Update `pyproject.toml` with training libraries
+- [x] Add M1 Max specific optimizations
+- [x] Test dependency installation in virtual environment
+- [x] Document any M1 Max compatibility issues
 
 **Dependencies to Add**:
 ```bash
@@ -56,10 +56,10 @@ torch>=2.1.0
 - MPS backend setup for PyTorch
 
 **Definition of Done**:
-- [ ] All dependencies install successfully
-- [ ] Virtual environment activates without errors
-- [ ] Basic imports work (transformers, peft, bitsandbytes)
-- [ ] M1 Max acceleration is detected and working
+- [x] All dependencies install successfully
+- [x] Virtual environment activates without errors
+- [x] Basic imports work (transformers, peft, bitsandbytes)
+- [x] M1 Max acceleration is detected and working
 
 ---
 
