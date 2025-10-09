@@ -16,10 +16,13 @@ This roadmap outlines the complete implementation of QLoRA training capabilities
 - ✅ **Step 5 Complete**: Comprehensive training data pipeline implemented
 - ✅ **Step 6 Complete**: QLoRA Training Engine core implementation **COMPLETED**
 - ✅ **Step 7 Complete**: Training API Endpoints **COMPLETED**
-- 📋 **Next**: Step 8 - Adapter Inference System
+- 📋 **Next**: Step 7.5 - 42 Document Training Validation (End-to-End Test)
 
 **Latest Achievement**: **Step 7 Training API Endpoints COMPLETED!** 🎉 
 Complete REST API system with 8 training/adapter endpoints, background job management, progress tracking, and comprehensive testing. Training engine now accessible via REST API with full job lifecycle management.
+
+**Next Goal**: **Step 7.5 - 42 Document Training Validation** 📋
+End-to-end validation by training the 42 document and testing trained responses via curl to prove complete workflow functionality.
 
 ## Git Branching Strategy
 Each step will be implemented in a separate feature branch:
@@ -466,11 +469,14 @@ DELETE /api/adapters/<name>        # Delete adapter ✅
 **Objective**: Implement system to use trained LoRA adapters during inference
 
 **Tasks**:
-- [ ] Update model manager to support adapter loading
-- [ ] Implement adapter switching during runtime
-- [ ] Add adapter-specific generation parameters
-- [ ] Create adapter performance caching
-- [ ] Update chat completion endpoints to use adapters
+- [x] Basic adapter management system ✅ (completed in Step 7)
+- [x] Adapter REST API endpoints ✅ (completed in Step 7)
+- [ ] **Integrate adapter loading with model manager**
+- [ ] **Update chat completion endpoints to use loaded adapters**
+- [ ] **Implement runtime adapter switching**
+- [ ] **Add adapter-specific generation parameters**
+- [ ] **Create adapter performance monitoring**
+- [ ] **Update inference endpoints for adapter support**
 
 **Adapter Management**:
 ```python
@@ -492,17 +498,182 @@ class AdapterManager:
 - Memory management for multiple adapters
 
 **Definition of Done**:
-- [ ] Adapters load correctly onto base models
+- [x] Adapter management infrastructure implemented ✅ (Step 7)
+- [x] Adapter REST API endpoints functional ✅ (Step 7)  
+- [ ] Adapters load correctly onto base models for inference
 - [ ] Inference quality is improved with adapters
-- [ ] Multiple adapters can be switched dynamically
+- [ ] Multiple adapters can be switched dynamically during inference
 - [ ] Performance overhead is minimal
-- [ ] All existing endpoints work with adapters
+- [ ] Chat completion endpoints work with loaded adapters
+
+---
+
+## Phase 2.5: 42 Document Training Validation (End-to-End Test)
+
+### Step 7.5: 42 Document Training with curl API Testing
+**Branch**: `feature/step-7.5-42-document-training`
+
+**Objective**: Complete end-to-end validation by training the 42 document and testing trained responses via curl
+
+**Why Now**: Validate our complete Steps 6+7 implementation with real training data before proceeding to Step 8
+
+**Prerequisites**:
+- ✅ Step 6: QLoRA Training Engine (COMPLETED)
+- ✅ Step 7: Training API Endpoints (COMPLETED)
+- ✅ Step 5: Training Data Pipeline (COMPLETED - can process 42 document)
+
+**Tasks**:
+- [ ] **1. Prepare 42 Document Training Data**
+  - [ ] Locate/create the 42 comprehensive analysis document
+  - [ ] Process document through training data pipeline
+  - [ ] Generate instruction-response pairs for training
+  - [ ] Validate training data quality and format
+
+- [ ] **2. Start LocalAI Server**
+  - [ ] Start server with: `python -m local_ai_server`
+  - [ ] Verify server is running on http://localhost:5001
+  - [ ] Test basic health endpoint
+
+- [ ] **3. Upload Training Data via curl**
+  - [ ] Prepare training data JSON payload
+  - [ ] Upload via `POST /api/training/data/upload`
+  - [ ] Verify upload success and data validation
+
+- [ ] **4. Start Training Job via curl**
+  - [ ] Configure training parameters for 42 document
+  - [ ] Start training via `POST /api/training/start`
+  - [ ] Get job ID and verify job submission
+
+- [ ] **5. Monitor Training Progress via curl**
+  - [ ] Poll training status via `GET /api/training/status/<job_id>`
+  - [ ] Monitor loss reduction and progress metrics
+  - [ ] Wait for training completion
+
+- [ ] **6. List and Load Trained Adapter via curl**
+  - [ ] List available adapters via `GET /api/adapters`
+  - [ ] Load 42 adapter via `POST /api/adapters/<name>/load`
+  - [ ] Verify adapter is loaded successfully
+
+- [ ] **7. Test 42-Specific Knowledge via curl**
+  - [ ] Test questions that can only be answered with 42 training
+  - [ ] Verify responses contain 42-specific methodology
+  - [ ] Compare with base model responses (without adapter)
+  - [ ] Document successful knowledge transfer
+
+**Complete curl Command Sequence**:
+
+```bash
+# Step 1: Verify server is running
+curl http://localhost:5001/health
+
+# Step 2: Upload training data
+curl -X POST http://localhost:5001/api/training/data/upload \
+  -H "Content-Type: application/json" \
+  -d '{
+    "dataset_name": "42_methodology",
+    "train_texts": [
+      "### Instruction:\nWhat is the 42 methodology approach to problem solving?\n\n### Response:\n[42-specific response based on document]",
+      "### Instruction:\nHow does 42 define elegant code?\n\n### Response:\n[42-specific definition from training]"
+    ]
+  }'
+
+# Step 3: Start training job
+curl -X POST http://localhost:5001/api/training/start \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model_name": "codellama-7b-instruct",
+    "train_texts": [...],
+    "lora_config": {
+      "r": 4,
+      "lora_alpha": 8,
+      "lora_dropout": 0.05
+    },
+    "training_config": {
+      "num_epochs": 3,
+      "batch_size": 1,
+      "learning_rate": 2e-4,
+      "max_steps": 100
+    },
+    "output_dir": "./adapters/42_methodology"
+  }'
+
+# Step 4: Monitor training progress
+curl http://localhost:5001/api/training/status/JOB_ID
+
+# Step 5: List trained adapters
+curl http://localhost:5001/api/adapters
+
+# Step 6: Load the 42 adapter
+curl -X POST http://localhost:5001/api/adapters/42_methodology/load
+
+# Step 7: Test 42-specific knowledge
+curl -X POST http://localhost:5001/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "codellama-7b-instruct",
+    "messages": [
+      {"role": "user", "content": "What is the 42 approach to code elegance?"}
+    ],
+    "max_tokens": 200
+  }'
+
+# Step 8: Test without adapter (comparison)
+curl -X POST http://localhost:5001/api/adapters/unload
+curl -X POST http://localhost:5001/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "codellama-7b-instruct", 
+    "messages": [
+      {"role": "user", "content": "What is the 42 approach to code elegance?"}
+    ],
+    "max_tokens": 200
+  }'
+```
+
+**Expected Validation Results**:
+- ✅ Training data successfully uploaded and validated
+- ✅ Training job starts and completes successfully  
+- ✅ Loss reduction demonstrates learning (e.g., 2.5 → 1.2)
+- ✅ Adapter saves correctly and can be loaded
+- ✅ Model with adapter gives 42-specific responses
+- ✅ Model without adapter gives generic responses
+- ✅ Clear difference proves successful knowledge transfer
+
+**Success Criteria**:
+- [ ] Training completes without errors
+- [ ] Loss reduces by at least 30% during training
+- [ ] Trained adapter loads successfully
+- [ ] Model responses contain 42-specific knowledge
+- [ ] Responses are measurably different from base model
+- [ ] Complete workflow documented and reproducible
+
+**42-Specific Test Questions**:
+1. "What is the 42 methodology for code review?"
+2. "How does 42 define elegant coding practices?"
+3. "What are the 42 principles for team collaboration?"
+4. "How does 42 approach technical documentation?"
+5. "What is the 42 philosophy on code maintainability?"
+
+**Definition of Done**:
+- [ ] 42 document processed into training data
+- [ ] Training job completes successfully via API
+- [ ] Adapter demonstrates 42-specific knowledge
+- [ ] curl commands work end-to-end
+- [ ] Results prove successful knowledge transfer
+- [ ] Complete workflow is documented and validated
+
+**Time Estimate**: 1-2 hours (assuming 42 document is available)
+
+**Next Steps After Completion**:
+- Document any issues found during end-to-end testing
+- Use results to validate Step 8 requirements
+- Proceed to Step 8: Adapter Inference System with proven adapter
 
 ---
 
 ## Phase 3: Integration and Testing
 
-### Step 9: Training Monitoring and Logging
+### Step 8: Adapter Inference System
 **Branch**: `feature/step-09-training-monitoring`
 
 **Objective**: Implement comprehensive training monitoring and logging system
@@ -635,7 +806,8 @@ class AdapterManager:
 - **Step 5**: Training Data Pipeline - ✅ **COMPLETED** (2-3 days)
 - **Step 6**: QLoRA Training Engine - ✅ **CORE COMPLETED** (4-5 days) 🚀 **IN PROGRESS**
 - **Step 7**: Training API Endpoints - ✅ **COMPLETED** (2-3 days)
-- **Step 8**: Adapter Inference System - 📋 **NEXT** (3-4 days)
+- **Step 7.5**: 42 Document Training Validation - 📋 **NEXT** (1-2 hours)
+- **Step 8**: Adapter Inference System - 3-4 days
 
 ### Phase 3: Integration and Testing (Estimated: 1 week)
 - **Step 9**: Training Monitoring - 2 days

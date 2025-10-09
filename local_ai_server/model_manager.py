@@ -24,11 +24,14 @@ logger = logging.getLogger(__name__)
 
 class ModelStatus:
     def __init__(self, loaded: bool, model_type: Optional[str] = None, 
-                 context_window: Optional[int] = None, description: Optional[str] = None):
+                 context_window: Optional[int] = None, description: Optional[str] = None,
+                 adapter_loaded: bool = False, current_adapter: Optional[str] = None):
         self.loaded = loaded
         self.model_type = model_type
         self.context_window = context_window
         self.description = description
+        self.adapter_loaded = adapter_loaded
+        self.current_adapter = current_adapter
 
 class ModelManager:
     def __init__(self, models_dir: Path):
@@ -174,12 +177,134 @@ class ModelManager:
         elif torch.cuda.is_available():
             torch.cuda.empty_cache()
 
+    def load_adapter(self, adapter_name: str) -> bool:
+        """
+        Load a LoRA adapter onto the current model for inference.
+        
+        Args:
+            adapter_name: Name of the adapter to load
+            
+        Returns:
+            bool: True if adapter loaded successfully, False otherwise
+        """
+        if self.model is None:
+            logger.error("No base model loaded. Load a model first.")
+            return False
+            
+        try:
+            adapter_path = self.adapters_dir / adapter_name
+            
+            if not adapter_path.exists():
+                logger.error(f"Adapter {adapter_name} not found at {adapter_path}")
+                return False
+            
+            # Check if adapter config exists
+            config_file = adapter_path / "adapter_config.json"
+            if not config_file.exists():
+                logger.error(f"Adapter {adapter_name} missing configuration file")
+                return False
+            
+            logger.info(f"Loading adapter {adapter_name} from {adapter_path}")
+            
+            # Unload current adapter if one is loaded
+            if self.current_adapter:
+                self.unload_adapter()
+            
+            # Load the adapter using PEFT
+            self.model = PeftModel.from_pretrained(
+                self.model, 
+                str(adapter_path),
+                is_trainable=False  # For inference only
+            )
+            
+            self.current_adapter = adapter_name
+            logger.info(f"Successfully loaded adapter: {adapter_name}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to load adapter {adapter_name}: {e}")
+            return False
+    
+    def unload_adapter(self) -> bool:
+        """
+        Unload the current adapter and return to base model.
+        
+        Returns:
+            bool: True if adapter unloaded successfully, False otherwise
+        """
+        if not self.current_adapter:
+            logger.info("No adapter currently loaded")
+            return True
+            
+        try:
+            logger.info(f"Unloading adapter: {self.current_adapter}")
+            
+            # Get the base model back
+            if hasattr(self.model, 'unload'):
+                # PEFT method to unload adapter
+                self.model = self.model.unload()
+            else:
+                # Fallback: reload the base model
+                model_name = self.current_model_name
+                self._unload_model()
+                self.load_model(model_name)
+                return True
+            
+            self.current_adapter = None
+            logger.info("Adapter unloaded successfully")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to unload adapter: {e}")
+            return False
+    
+    def get_adapter_status(self) -> Dict:
+        """
+        Get current adapter status.
+        
+        Returns:
+            Dict with adapter information
+        """
+        return {
+            "current_adapter": self.current_adapter,
+            "adapter_loaded": self.current_adapter is not None,
+            "base_model": self.current_model_name,
+            "adapters_directory": str(self.adapters_dir)
+        }
+    
+    def list_available_adapters(self) -> List[str]:
+        """
+        List all available adapters in the adapters directory.
+        
+        Returns:
+            List of adapter names
+        """
+        adapters = []
+        try:
+            if self.adapters_dir.exists():
+                for item in self.adapters_dir.iterdir():
+                    if item.is_dir():
+                        # Check if it has adapter config
+                        config_file = item / "adapter_config.json"
+                        if config_file.exists():
+                            adapters.append(item.name)
+            return adapters
+        except Exception as e:
+            logger.error(f"Error listing adapters: {e}")
+            return []
+
     def generate_text(self, prompt: str, max_tokens: int = 512, 
                      temperature: float = 0.1, top_p: float = 0.9, 
                      stop_sequences: Optional[List[str]] = None) -> str:
-        """Generate text using the loaded model"""
+        """Generate text using the loaded model (with optional adapter)"""
         if self.model is None or self.tokenizer is None:
             raise RuntimeError("No model loaded")
+        
+        # Log adapter status
+        if self.current_adapter:
+            logger.debug(f"Generating with adapter: {self.current_adapter}")
+        else:
+            logger.debug("Generating with base model (no adapter)")
         
         # Tokenize input
         inputs = self.tokenizer(prompt, return_tensors="pt", truncation=True, 
@@ -222,15 +347,21 @@ class ModelManager:
                 raise
 
     def get_model_status(self) -> ModelStatus:
-        """Get current model status"""
+        """Get current model status including adapter information"""
         if self.model is None:
             return ModelStatus(loaded=False)
+        
+        adapter_description = ""
+        if self.current_adapter:
+            adapter_description = f" + {self.current_adapter} adapter"
         
         return ModelStatus(
             loaded=True,
             model_type=self.model_type,
             context_window=self.context_window,
-            description=f"{self.current_model_name} (HuggingFace)"
+            description=f"{self.current_model_name} (HuggingFace){adapter_description}",
+            adapter_loaded=self.current_adapter is not None,
+            current_adapter=self.current_adapter
         )
 
     def list_available_models(self) -> List[str]:

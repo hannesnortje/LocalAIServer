@@ -201,9 +201,8 @@ class AdapterManager:
         """
         Load an adapter for inference.
         
-        Note: This is a placeholder for now. In a full implementation,
-        this would integrate with the model manager to actually load
-        the adapter onto the base model.
+        This integrates with the model manager to actually load the adapter
+        onto the base model for inference use.
         
         Args:
             name: Adapter name to load
@@ -224,9 +223,23 @@ class AdapterManager:
                 logger.error(f"Adapter {name} is missing configuration file")
                 return False
             
-            # For now, just track which adapter is "loaded"
-            # In a full implementation, this would integrate with the model manager
-            self.current_adapter = name
+            # Import here to avoid circular imports
+            from ..model_manager import model_manager
+            
+            # Load adapter through model manager
+            success = model_manager.load_adapter(name)
+            
+            if success:
+                self.current_adapter = name
+                logger.info(f"Adapter {name} loaded successfully")
+            else:
+                logger.error(f"Failed to load adapter {name} through model manager")
+            
+            return success
+            
+        except Exception as e:
+            logger.error(f"Error loading adapter {name}: {e}")
+            return False
             
             logger.info(f"Loaded adapter: {name}")
             return True
@@ -244,12 +257,22 @@ class AdapterManager:
         """
         try:
             if self.current_adapter:
-                logger.info(f"Unloaded adapter: {self.current_adapter}")
-                self.current_adapter = None
-                return True
+                # Import here to avoid circular imports
+                from ..model_manager import model_manager
+                
+                # Unload adapter through model manager
+                success = model_manager.unload_adapter()
+                
+                if success:
+                    logger.info(f"Unloaded adapter: {self.current_adapter}")
+                    self.current_adapter = None
+                else:
+                    logger.error("Failed to unload adapter through model manager")
+                
+                return success
             else:
                 logger.warning("No adapter currently loaded")
-                return False
+                return True  # Nothing to unload is considered success
                 
         except Exception as e:
             logger.error(f"Failed to unload adapter: {e}")
