@@ -31,6 +31,7 @@ from .preprocessing import DataPreprocessor, PromptFormat
 from .validation import DataValidator
 from .formats import FormatConverter
 from .chroma_adapter import ChromaAdapter
+from .qlora import QLoRATrainer, LoRAConfig, TrainingConfig
 
 __version__ = "0.1.0"
 __all__ = [
@@ -40,7 +41,10 @@ __all__ = [
     'PromptFormat',
     'DataValidator',
     'FormatConverter',
-    'ChromaAdapter'
+    'ChromaAdapter',
+    'QLoRATrainer',
+    'LoRAConfig', 
+    'TrainingConfig'
 ]
 
 # Training data format constants
