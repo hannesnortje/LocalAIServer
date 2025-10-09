@@ -311,5 +311,45 @@ class ModelManager:
         
         prompt_parts.append("Assistant: ")
         return "\n".join(prompt_parts)
+
+    # Legacy methods for backward compatibility with existing endpoints
+    def get_status(self) -> Dict[str, ModelStatus]:
+        """Get status of all models (legacy compatibility method)"""
+        models = {}
+        
+        # Add available models from configuration
+        for model_name in AVAILABLE_MODELS.keys():
+            is_loaded = self.current_model_name == model_name
+            models[model_name] = ModelStatus(
+                loaded=is_loaded,
+                model_type="huggingface",
+                context_window=self.context_window if is_loaded else None,
+                description=AVAILABLE_MODELS[model_name].get('description')
+            )
+        
+        return models
+
+    def list_models(self) -> List[Dict[str, str]]:
+        """List models for v1/models endpoint (legacy compatibility)"""
+        models = []
+        
+        for model_name, config in AVAILABLE_MODELS.items():
+            models.append({
+                "id": model_name,
+                "object": "model",
+                "owned_by": "local",
+                "type": "huggingface"
+            })
+        
+        return models
+
+    def update_model_info(self, model_name: str, model_type: Optional[str] = None, 
+                         context_window: Optional[int] = None):
+        """Update internal model info cache for dynamic model additions (legacy compatibility)"""
+        logger.info(f"Updated model info for {model_name}: type={model_type}, context={context_window}")
+
+    def generate_response(self, prompt: str, **kwargs) -> str:
+        """Generate a response to the given prompt using the loaded model (legacy compatibility)"""
+        return self.generate_text(prompt, **kwargs)
 # Create global instance
 model_manager = ModelManager(Path(__file__).parent / 'models')
