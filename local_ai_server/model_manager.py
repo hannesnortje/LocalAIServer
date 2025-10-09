@@ -1,14 +1,30 @@
 import logging
 import torch
 from pathlib import Path
-from typing import List, Dict, Optional
-from transformers import AutoTokenizer, AutoModelForCausalLM
-from llama_cpp import Llama
+from typing import List, Dict, Optional, Union
+from transformers import (
+    AutoTokenizer, 
+    AutoModelForCausalLM,
+    BitsAndBytesConfig,
+    GenerationConfig
+)
+from peft import PeftModel
+from huggingface_hub import snapshot_download
+import os
+
+from .models_config import (
+    AVAILABLE_MODELS, 
+    MODEL_DEFAULTS, 
+    get_model_config,
+    get_model_id,
+    get_lora_config
+)
 
 logger = logging.getLogger(__name__)
 
 class ModelStatus:
-    def __init__(self, loaded: bool, model_type: Optional[str] = None, context_window: Optional[int] = None, description: Optional[str] = None):
+    def __init__(self, loaded: bool, model_type: Optional[str] = None, 
+                 context_window: Optional[int] = None, description: Optional[str] = None):
         self.loaded = loaded
         self.model_type = model_type
         self.context_window = context_window
@@ -21,265 +37,279 @@ class ModelManager:
         self.tokenizer = None
         self.current_model_name = None
         self.model_type = None
-        self.context_window = 512  # default context window
-        logger.debug(f"Models directory: {self.models_dir}")
+        self.context_window = 2048  # default context window
+        self.device = "mps" if torch.backends.mps.is_available() else "cpu"
+        self.adapters_dir = models_dir / "adapters"
+        self.adapters_dir.mkdir(exist_ok=True)
+        self.current_adapter = None
+        
+        logger.info(f"Models directory: {self.models_dir}")
+        logger.info(f"Using device: {self.device}")
+        logger.info(f"MPS available: {torch.backends.mps.is_available()}")
+
+    def _get_quantization_config(self) -> Optional[BitsAndBytesConfig]:
+        """Get quantization configuration for M1 Max"""
+        try:
+            # Try to create quantization config
+            # Note: This may not work on M1 Max due to bitsandbytes limitations
+            quant_config = MODEL_DEFAULTS["quantization"]
+            return BitsAndBytesConfig(
+                load_in_4bit=quant_config["load_in_4bit"],
+                bnb_4bit_compute_dtype=torch.float16,
+                bnb_4bit_use_double_quant=quant_config["bnb_4bit_use_double_quant"],
+                bnb_4bit_quant_type=quant_config["bnb_4bit_quant_type"]
+            )
+        except Exception as e:
+            logger.warning(f"Quantization not available: {e}")
+            return None
 
     def load_model(self, model_name: str):
-        if self.current_model_name == model_name:
+        """Load a HuggingFace model"""
+        if self.current_model_name == model_name and self.model is not None:
+            logger.info(f"Model {model_name} already loaded")
             return
         
-        model_path = self.models_dir / model_name
-        
-        if model_path.exists():
-            print(f"Loading model from {model_path}")
-            if str(model_path).endswith('.gguf'):
-                # Determine chat format based on model name
-                chat_format = None
-                if 'codellama' in model_name.lower() or 'llama-2' in model_name.lower():
-                    chat_format = 'llama-2'  # CodeLlama and Llama-2 use same format
-                elif 'mistral' in model_name.lower():
-                    chat_format = 'mistral-instruct'
-                # For phi and others, llama.cpp will try to auto-detect
-                
-                self.model = Llama(
-                    model_path=str(model_path),
-                    n_ctx=4096,  # Increase context window
-                    n_threads=8,  # M1 Max optimized
-                    verbose=False,
-                    chat_format=chat_format  # Use proper chat template
-                )
-                self.model_type = 'gguf'
-                self.tokenizer = None
-                self.context_window = self.model.n_ctx()
-                logger.info(f"Loaded GGUF model with chat_format={chat_format}")
-            else:
-                self.tokenizer = AutoTokenizer.from_pretrained(str(model_path))
-                self.model = AutoModelForCausalLM.from_pretrained(str(model_path))
-                self.model_type = 'hf'
-        else:
-            # Only download for HF models
-            print(f"Downloading model {model_name}")
-            self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-            self.model = AutoModelForCausalLM.from_pretrained(model_name)
-            self.model_type = 'hf'
-            
-            print(f"Saving model to {model_path}")
-            self.tokenizer.save_pretrained(str(model_path))
-            self.model.save_pretrained(str(model_path))
-        
-        self.current_model_name = model_name
-
-    def list_models(self) -> List[Dict[str, str]]:
-        models = []
-        logger.debug(f"Scanning models directory: {self.models_dir}")
-        
+        # Get model configuration
         try:
-            # Print absolute path for debugging
-            abs_path = self.models_dir.absolute()
-            logger.debug(f"Absolute path: {abs_path}")
-            logger.debug(f"Directory exists: {abs_path.exists()}")
-            logger.debug(f"Is directory: {abs_path.is_dir()}")
-            
-            # List all files and their details
-            if abs_path.exists() and abs_path.is_dir():
-                for item in abs_path.iterdir():
-                    logger.debug(f"Found item: {item}, is_file: {item.is_file()}")
-                    if item.is_file():
-                        model_type = 'gguf' if item.name.endswith('.gguf') else 'hf'
-                        models.append({
-                            "id": item.name,
-                            "object": "model",
-                            "owned_by": "local",
-                            "type": model_type
-                        })
-            
-        except Exception as e:
-            logger.error(f"Error scanning models directory: {e}", exc_info=True)
-        
-        logger.debug(f"Found models: {models}")
-        return models
-
-    def get_status(self) -> Dict[str, ModelStatus]:
-        models = {}
-        
-        # First check the models directory for all files
-        for model_file in self.models_dir.glob('*'):
-            if model_file.is_file():
-                model_type = 'gguf' if model_file.name.endswith('.gguf') else 'hf'
-                is_loaded = self.current_model_name == model_file.name
-                
-                # Get description from AVAILABLE_MODELS if it exists
-                description = None
-                from .models_config import AVAILABLE_MODELS
-                if model_file.name in AVAILABLE_MODELS:
-                    description = AVAILABLE_MODELS[model_file.name].get('description')
-                
-                models[model_file.name] = ModelStatus(
-                    loaded=is_loaded,
-                    model_type=model_type,
-                    context_window=self.context_window if is_loaded else None,
-                    description=description
-                )
-        
-        return models
-
-    def update_model_info(self, model_name: str, model_type: Optional[str] = None, context_window: Optional[int] = None):
-        """Update internal model info cache for dynamic model additions"""
-        # This is a helper method to update status for newly uploaded models
-        # without requiring a full reload of the model
-        model_file = self.models_dir / model_name
-        if not model_file.exists():
-            logger.warning(f"Cannot update info for non-existent model: {model_name}")
-            return
-        
-        # Force model info to be refreshed on next status check
-        logger.info(f"Updated model info for {model_name}: type={model_type}, context={context_window}")
-
-    def generate_response(self, prompt: str, **kwargs) -> str:
-        """Generate a response to the given prompt using the loaded model."""
-        try:
-            # Set default parameters if not provided
-            max_tokens = kwargs.get('max_tokens', 100)
-            temperature = kwargs.get('temperature', 0.7)
-            
-            if self.model_type == 'gguf':
-                # Calculate available tokens
-                estimated_prompt_tokens = len(prompt.split())
-                if estimated_prompt_tokens + max_tokens > self.context_window:
-                    max_tokens = max(0, self.context_window - estimated_prompt_tokens)
-                    logger.warning(f"Adjusted max_tokens to {max_tokens} due to context window limits")
-                
-                # Only pass parameters that the model supports
-                model_kwargs = {
-                    'prompt': prompt,
-                    'max_tokens': max_tokens,
-                    'temperature': temperature,
-                    'echo': False
-                }
-                
-                # Add other parameters if provided
-                for param in ['top_p', 'frequency_penalty', 'presence_penalty', 'stop']:
-                    if param in kwargs and kwargs[param] is not None:
-                        model_kwargs[param] = kwargs[param]
-                
-                response = self.model(**model_kwargs)
-                return response['choices'][0]['text']
-            else:
-                # Handle Hugging Face models
-                inputs = self.tokenizer(prompt, return_tensors="pt")
-                
-                # Prepare generate parameters
-                generate_kwargs = {
-                    'max_length': inputs["input_ids"].shape[1] + max_tokens,
-                    'temperature': temperature,
-                }
-                
-                # Add other parameters if provided and supported by HF
-                if 'top_p' in kwargs and kwargs['top_p'] is not None:
-                    generate_kwargs['top_p'] = kwargs['top_p']
-                    
-                outputs = self.model.generate(
-                    inputs["input_ids"],
-                    **generate_kwargs
-                )
-                return self.tokenizer.decode(outputs[0], skip_special_tokens=True)
-        
+            model_config = get_model_config(model_name)
+            model_id = get_model_id(model_name)
         except ValueError as e:
-            if "context window" in str(e):
-                raise RuntimeError(f"Input too long. Maximum context window is {self.context_window} tokens.")
-            raise e
+            logger.error(f"Model {model_name} not found in configuration: {e}")
+            raise
+        
+        logger.info(f"Loading model: {model_name} ({model_id})")
+        
+        # Clear previous model
+        self._unload_model()
+        
+        try:
+            # Check if model is downloaded locally
+            local_model_path = self.models_dir / model_name
+            
+            if local_model_path.exists() and (local_model_path / "config.json").exists():
+                logger.info(f"Loading from local path: {local_model_path}")
+                model_path = str(local_model_path)
+            else:
+                logger.info(f"Using HuggingFace Hub: {model_id}")
+                model_path = model_id
+            
+            # Load tokenizer
+            logger.info("Loading tokenizer...")
+            self.tokenizer = AutoTokenizer.from_pretrained(
+                model_path,
+                trust_remote_code=False,
+                use_fast=True
+            )
+            
+            # Set pad token if not present
+            if self.tokenizer.pad_token is None:
+                self.tokenizer.pad_token = self.tokenizer.eos_token
+            
+            # Try quantization first, fall back to FP16
+            quantization_config = self._get_quantization_config()
+            
+            logger.info("Loading model...")
+            try:
+                # Try with quantization
+                if quantization_config is not None:
+                    logger.info("Attempting to load with 4-bit quantization...")
+                    self.model = AutoModelForCausalLM.from_pretrained(
+                        model_path,
+                        quantization_config=quantization_config,
+                        device_map="auto",
+                        torch_dtype=torch.float16,
+                        trust_remote_code=False,
+                        low_cpu_mem_usage=True
+                    )
+                else:
+                    raise Exception("Quantization not available, using FP16")
+                    
+            except Exception as quant_error:
+                logger.warning(f"Quantization failed: {quant_error}")
+                logger.info("Loading with FP16...")
+                # Fall back to FP16 without quantization
+                self.model = AutoModelForCausalLM.from_pretrained(
+                    model_path,
+                    torch_dtype=torch.float16,
+                    device_map="auto" if self.device == "mps" else None,
+                    trust_remote_code=False,
+                    low_cpu_mem_usage=True
+                )
+                
+                # Move to MPS if available and not using device_map
+                if self.device == "mps" and not hasattr(self.model, "hf_device_map"):
+                    self.model = self.model.to(self.device)
+            
+            # Set model properties
+            self.current_model_name = model_name
+            self.model_type = "huggingface"
+            self.context_window = model_config.get("context_window", 2048)
+            
+            # Enable eval mode for inference
+            self.model.eval()
+            
+            logger.info(f"Successfully loaded {model_name}")
+            logger.info(f"Model device: {self.model.device}")
+            logger.info(f"Context window: {self.context_window}")
+            
         except Exception as e:
-            logger.error(f"Error generating response: {e}", exc_info=True)
-            raise RuntimeError(str(e))
+            logger.error(f"Failed to load model {model_name}: {e}")
+            self._unload_model()
+            raise
+            
+    def _unload_model(self):
+        """Unload current model and free memory"""
+        if self.model is not None:
+            del self.model
+            self.model = None
+        if self.tokenizer is not None:
+            del self.tokenizer  
+            self.tokenizer = None
+        self.current_model_name = None
+        self.current_adapter = None
+        
+        # Clear GPU cache
+        if torch.backends.mps.is_available():
+            torch.mps.empty_cache()
+        elif torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
-    def generate(self, prompt, **kwargs):
-        """Generate a response from the current model"""
-        if not self.model:
+    def generate_text(self, prompt: str, max_tokens: int = 512, 
+                     temperature: float = 0.1, top_p: float = 0.9, 
+                     stop_sequences: Optional[List[str]] = None) -> str:
+        """Generate text using the loaded model"""
+        if self.model is None or self.tokenizer is None:
             raise RuntimeError("No model loaded")
         
-        if isinstance(self.model, Llama):
-            # For Llama models
-            # Only include parameters that were explicitly provided
-            completion_params = {
-                'prompt': prompt,
-                'echo': False
-            }
-            if 'max_tokens' in kwargs:
-                completion_params['max_tokens'] = kwargs['max_tokens']
-            if 'temperature' in kwargs:
-                completion_params['temperature'] = kwargs['temperature']
-            if 'stop' in kwargs:
-                completion_params['stop'] = kwargs['stop']
-            if 'top_p' in kwargs:
-                completion_params['top_p'] = kwargs['top_p']
-            if 'frequency_penalty' in kwargs:
-                completion_params['frequency_penalty'] = kwargs['frequency_penalty']
-            if 'presence_penalty' in kwargs:
-                completion_params['presence_penalty'] = kwargs['presence_penalty']
+        # Tokenize input
+        inputs = self.tokenizer(prompt, return_tensors="pt", truncation=True, 
+                               max_length=self.context_window - max_tokens)
+        
+        # Move to device
+        if self.device == "mps":
+            inputs = {k: v.to(self.device) for k, v in inputs.items()}
+        
+        # Generate
+        with torch.no_grad():
+            try:
+                outputs = self.model.generate(
+                    **inputs,
+                    max_new_tokens=max_tokens,
+                    temperature=temperature,
+                    top_p=top_p,
+                    do_sample=True,
+                    pad_token_id=self.tokenizer.pad_token_id,
+                    eos_token_id=self.tokenizer.eos_token_id,
+                    repetition_penalty=1.1,
+                    length_penalty=1.0
+                )
+                
+                # Decode only the new tokens
+                input_length = inputs["input_ids"].shape[1]
+                generated_tokens = outputs[0][input_length:]
+                generated_text = self.tokenizer.decode(generated_tokens, skip_special_tokens=True)
+                
+                # Apply stop sequences
+                if stop_sequences:
+                    for stop_seq in stop_sequences:
+                        if stop_seq in generated_text:
+                            generated_text = generated_text.split(stop_seq)[0]
+                
+                return generated_text
+                
+            except Exception as e:
+                logger.error(f"Generation failed: {e}")
+                raise
 
-            response = self.model.create_completion(**completion_params)
-            return response['choices'][0]['text'].strip()
-        else:
-            # For Transformers models
-            inputs = self.tokenizer(prompt, return_tensors="pt", padding=True)
-            generate_params = {}
-            
-            if 'max_tokens' in kwargs:
-                generate_params['max_length'] = inputs["input_ids"].shape[1] + kwargs['max_tokens']
-            if 'temperature' in kwargs:
-                generate_params['temperature'] = kwargs['temperature']
-                generate_params['do_sample'] = True
-            if 'top_p' in kwargs:
-                generate_params['top_p'] = kwargs['top_p']
-                generate_params['do_sample'] = True
+    def get_model_status(self) -> ModelStatus:
+        """Get current model status"""
+        if self.model is None:
+            return ModelStatus(loaded=False)
+        
+        return ModelStatus(
+            loaded=True,
+            model_type=self.model_type,
+            context_window=self.context_window,
+            description=f"{self.current_model_name} (HuggingFace)"
+        )
 
-            # Always include pad_token_id
-            generate_params['pad_token_id'] = self.tokenizer.eos_token_id
+    def list_available_models(self) -> List[str]:
+        """List all available models from configuration"""
+        return list(AVAILABLE_MODELS.keys())
 
-            outputs = self.model.generate(inputs["input_ids"], **generate_params)
-            return self.tokenizer.decode(outputs[0], skip_special_tokens=True)
-    
-    def create_chat_completion(self, messages, **kwargs):
-        """Create a chat completion response"""
-        if isinstance(self.model, Llama):
-            # Use llama-cpp-python's native chat completion with proper templates
-            completion_params = {
-                'messages': messages,
-            }
-            
-            # Add optional parameters
-            if 'max_tokens' in kwargs:
-                completion_params['max_tokens'] = kwargs['max_tokens']
-            if 'temperature' in kwargs:
-                completion_params['temperature'] = kwargs['temperature']
-            if 'top_p' in kwargs:
-                completion_params['top_p'] = kwargs['top_p']
-            if 'stop' in kwargs:
-                completion_params['stop'] = kwargs['stop']
-            if 'frequency_penalty' in kwargs:
-                completion_params['frequency_penalty'] = kwargs['frequency_penalty']
-            if 'presence_penalty' in kwargs:
-                completion_params['presence_penalty'] = kwargs['presence_penalty']
-            
-            response = self.model.create_chat_completion(**completion_params)
-            msg = response['choices'][0]['message']['content']
-            
-            # Strip ChatML stop tokens for clean output
-            msg = msg.split("<|im_end|>")[0].split("<|im")[0].strip()
+    def get_model_info(self, model_name: str) -> Dict:
+        """Get information about a specific model"""
+        try:
+            return get_model_config(model_name)
+        except ValueError:
+            return {}
+
+    # Legacy methods for backward compatibility with existing endpoints
+    def generate(self, prompt: str, max_tokens: int = 512, **kwargs) -> Dict:
+        """Legacy generate method for compatibility"""
+        try:
+            generated_text = self.generate_text(
+                prompt=prompt,
+                max_tokens=max_tokens,
+                temperature=kwargs.get('temperature', 0.1),
+                top_p=kwargs.get('top_p', 0.9),
+                stop_sequences=kwargs.get('stop', [])
+            )
             
             return {
-                "role": "assistant",
-                "content": msg
+                "choices": [{
+                    "text": generated_text,
+                    "finish_reason": "stop"
+                }]
             }
-        else:
-            # For HF models, build a simple prompt
-            prompt = "\n".join(f"{msg['role']}: {msg['content']}" for msg in messages)
-            response_text = self.generate(prompt, **kwargs)
-            
+        except Exception as e:
+            logger.error(f"Generation error: {e}")
             return {
-                "role": "assistant",
-                "content": response_text
+                "choices": [{
+                    "text": f"Error: {str(e)}",
+                    "finish_reason": "error"
+                }]
             }
 
+    def create_chat_completion(self, messages: List[Dict], **kwargs) -> Dict:
+        """Create chat completion (simplified implementation)"""
+        # Convert messages to prompt
+        prompt = self._messages_to_prompt(messages)
+        
+        # Generate response
+        response = self.generate(prompt, **kwargs)
+        
+        # Format as chat completion
+        if response["choices"]:
+            content = response["choices"][0]["text"].strip()
+            return {
+                "choices": [{
+                    "message": {
+                        "role": "assistant",
+                        "content": content
+                    },
+                    "finish_reason": response["choices"][0]["finish_reason"]
+                }]
+            }
+        else:
+            return {"choices": []}
+
+    def _messages_to_prompt(self, messages: List[Dict]) -> str:
+        """Convert chat messages to a prompt string"""
+        prompt_parts = []
+        
+        for message in messages:
+            role = message.get("role", "user")
+            content = message.get("content", "")
+            
+            if role == "system":
+                prompt_parts.append(f"System: {content}")
+            elif role == "user":
+                prompt_parts.append(f"User: {content}")
+            elif role == "assistant":
+                prompt_parts.append(f"Assistant: {content}")
+        
+        prompt_parts.append("Assistant: ")
+        return "\n".join(prompt_parts)
 # Create global instance
 model_manager = ModelManager(Path(__file__).parent / 'models')
