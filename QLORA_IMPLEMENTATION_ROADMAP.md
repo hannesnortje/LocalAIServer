@@ -193,38 +193,68 @@ def download_huggingface_model(model_id, target_dir):
 ### Step 5: Training Data Pipeline
 **Branch**: `feature/step-05-training-data-pipeline`
 
-**Objective**: Create system for managing training datasets and preprocessing
+**Objective**: Create comprehensive system for managing training datasets and preprocessing
+
+**Multi-Format Approach**: 
+- Handle raw documents (like 42.md) with intelligent parsing
+- Accept prepared JSON data (ChatGPT processed)
+- Support ChromaDB integration for dynamic training data
+- Process multiple document types and formats uniformly
 
 **Tasks**:
 - [ ] Create `local_ai_server/training/` directory structure
-- [ ] Implement dataset upload and validation
+- [ ] Implement document analyzer for methodology extraction
+- [ ] Add dataset upload and validation (multiple formats)
 - [ ] Add data preprocessing for CodeLlama format
 - [ ] Create train/validation split functionality
 - [ ] Add dataset quality checks and statistics
 - [ ] Implement data format conversion utilities
+- [ ] Design ChromaDB integration pathway (framework only)
 
 **New Files**:
 ```
 local_ai_server/training/
 ├── __init__.py
-├── data_manager.py      # Dataset handling
-├── preprocessing.py     # Data formatting
+├── data_manager.py      # Dataset handling & upload
+├── document_analyzer.py # Extract training data from documents
+├── preprocessing.py     # Data formatting for CodeLlama
 ├── validation.py        # Data quality checks
-└── formats.py          # Format conversion utilities
+├── formats.py          # Format conversion utilities
+└── chroma_adapter.py   # ChromaDB integration framework
 ```
 
-**Data Format Support**:
-- JSON instruction datasets
-- Conversational format
-- Code completion format
-- Custom coding principle datasets
+**Data Sources Supported**:
+- Raw markdown documents (42 comprehensive analysis)
+- Prepared JSON instruction datasets (ChatGPT processed)
+- Conversational format logs
+- Code completion examples
+- ChromaDB semantic chunks (future integration)
+
+**Primary Test Case**: 42 document → training data pipeline
 
 **Definition of Done**:
-- [ ] Datasets can be uploaded via API
-- [ ] Data is validated and preprocessed correctly
-- [ ] Train/test splits are created automatically
+- [ ] Raw documents can be analyzed and converted to training data
+- [ ] Prepared JSON datasets are loaded and validated
+- [ ] Train/validation splits are created automatically
 - [ ] Data statistics are calculated and displayed
-- [ ] Multiple format types are supported
+- [ ] Multiple format types are supported uniformly
+- [ ] ChromaDB integration framework is established
+- [ ] 42 document successfully processed through complete pipeline
+
+**Flexible Workflow**:
+1. **Input Options**: Raw docs, prepared JSON, or future ChromaDB chunks
+2. **Document Analysis**: Extract methodology, philosophy, and examples
+3. **Format Conversion**: Transform to optimal training format
+4. **Quality Validation**: Ensure completeness and consistency
+5. **Train/Test Split**: Prepare for actual training
+6. **ChromaDB Ready**: Framework for future dynamic integration
+
+**True "FOR TWO" Approach**:
+- **TRON**: Provides content in any convenient format
+- **AI**: Systematically processes all formats optimally
+- **Result**: Maximum flexibility with systematic excellence
+
+**Estimated Time**: 2-3 days (comprehensive solution)
 
 ---
 

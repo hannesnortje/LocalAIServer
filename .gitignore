@@ -80,6 +80,39 @@ temp/
 *.safetensors
 *.model
 
+# Training data and artifacts
+training_data/
+test_training_data/
+*_training_data/
+*.jsonl
+*_train_*.json
+*_val_*.json
+*_test_*.json
+*_alpaca.json
+*_sharegpt.json
+*_openai.json
+*_huggingface.json
+
+# QLoRA Training artifacts
+checkpoints/
+outputs/
+runs/
+wandb/
+.wandb/
+training_logs/
+model_outputs/
+fine_tuned_models/
+
+# HuggingFace cache
+.cache/
+huggingface_cache/
+transformers_cache/
+
+# Test documents (can be large methodology docs)
+*-comprehensive-analysis-report.md
+*-methodology-document.md
+test_document_*.md
+
 # Session data
 flask_session/
 local_ai_server/storage/sessions/
