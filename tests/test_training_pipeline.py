@@ -14,7 +14,9 @@ Test Workflow:
 5. Save processed data in multiple formats for training
 
 Usage:
-    python test_training_pipeline.py [path_to_42_document]
+    python tests/test_training_pipeline.py [path_to_42_document]
+    # Or from within tests directory:
+    cd tests && python test_training_pipeline.py [path_to_42_document]
 """
 
 import sys
@@ -23,7 +25,7 @@ import logging
 from pathlib import Path
 
 # Add the local_ai_server to Python path
-sys.path.append(str(Path(__file__).parent))
+sys.path.append(str(Path(__file__).parent.parent))
 
 from local_ai_server.training import (
     DocumentAnalyzer, 
@@ -67,7 +69,7 @@ def test_training_pipeline(document_path: str = None):
         
         if not document_path:
             logger.error("❌ 42 document not found. Please provide path as argument.")
-            logger.info("Usage: python test_training_pipeline.py <path_to_42_document>")
+            logger.info("Usage: python tests/test_training_pipeline.py <path_to_42_document>")
             return False
     
     if not Path(document_path).exists():
