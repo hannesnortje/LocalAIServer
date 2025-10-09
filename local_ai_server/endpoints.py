@@ -377,7 +377,30 @@ def setup_routes(app):
         
         def download_stream():
             # Check if model already exists
+            # Check if model is completely downloaded
+            is_complete = False
             if target_path.exists() and (target_path / "config.json").exists():
+                # Check if all required model weight files are present
+                index_file = target_path / "model.safetensors.index.json"
+                if index_file.exists():
+                    try:
+                        with open(index_file, 'r') as f:
+                            index_data = json.load(f)
+                        
+                        # Get all required files from the weight_map
+                        required_files = set(index_data.get("weight_map", {}).values())
+                        existing_files = {f.name for f in target_path.glob("*.safetensors")}
+                        
+                        # Check if all required files are present
+                        is_complete = required_files.issubset(existing_files)
+                    except (json.JSONDecodeError, FileNotFoundError, KeyError):
+                        # If we can't parse the index, check if any safetensors files exist
+                        is_complete = len(list(target_path.glob("*.safetensors"))) > 0
+                else:
+                    # No index file, check if any model files exist
+                    is_complete = len(list(target_path.glob("*.safetensors"))) > 0 or len(list(target_path.glob("*.bin"))) > 0
+            
+            if is_complete:
                 yield json.dumps({
                     "status": "exists",
                     "progress": 100,
@@ -450,14 +473,37 @@ def setup_routes(app):
                 
                 # Download model files from HuggingFace Hub
                 try:
-                    # Download with snapshot_download for complete model
-                    downloaded_path = snapshot_download(
-                        repo_id=hf_model_id,
-                        local_dir=str(target_path),
-                        local_dir_use_symlinks=False,  # Use actual files, not symlinks
-                        resume_download=True,  # Resume if interrupted
-                        cache_dir=None,  # Don't use cache, download directly
-                    )
+                    # Use threading to run download in background while sending progress
+                    import concurrent.futures
+                    import time
+                    
+                    with concurrent.futures.ThreadPoolExecutor() as executor:
+                        # Submit the download task
+                        download_future = executor.submit(
+                            snapshot_download,
+                            repo_id=hf_model_id,
+                            local_dir=str(target_path),
+                            local_dir_use_symlinks=False,
+                            resume_download=True,
+                            cache_dir=None
+                        )
+                        
+                        # Send progress updates while download is running
+                        current_progress = 10
+                        while not download_future.done():
+                            yield json.dumps({
+                                "status": "downloading",
+                                "progress": current_progress,
+                                "message": f"Downloading model files... ({current_progress}%)",
+                                "model_id": model_id
+                            }) + "\n"
+                            
+                            time.sleep(8)  # Wait 8 seconds
+                            if current_progress < 80:
+                                current_progress += 10
+                        
+                        # Download completed, get the result
+                        downloaded_path = download_future.result()
                     
                     yield json.dumps({
                         "status": "processing",
@@ -583,7 +629,13 @@ def setup_routes(app):
             return jsonify({"error": "Model not found"}), 404
         
         try:
-            model_path.unlink()
+            if model_path.is_dir():
+                # For model directories, remove the entire directory
+                import shutil
+                shutil.rmtree(model_path)
+            else:
+                # For single model files
+                model_path.unlink()
             return jsonify({"status": "success", "message": f"Model {model_id} deleted successfully"})
         except Exception as e:
             logger.error(f"Error deleting model: {e}")

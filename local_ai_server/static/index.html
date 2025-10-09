@@ -177,65 +177,92 @@
             const cardBody = button.closest('.card-body');
             
             button.disabled = true;
+            button.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Downloading...';
             progress.classList.remove('d-none');
+            progressBar.style.width = '0%';
 
             try {
                 const response = await fetch(`/api/download-model/${modelId}`, {
-                    method: 'POST'
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ auto_load: false })
                 });
                 
-                if (!response.ok) throw new Error('Download failed');
+                if (!response.ok) {
+                    throw new Error(`Download failed: ${response.status}`);
+                }
                 
                 const reader = response.body.getReader();
-                
-                let chunks = '';
-                let lastJson = null;
+                const decoder = new TextDecoder();
+                let buffer = '';
+                let downloadCompleted = false;
                 
                 while (true) {
-                    const {value, done} = await reader.read();
+                    const { value, done } = await reader.read();
                     
-                    if (done) {
-                        if (lastJson && lastJson.status === 'success') {
-                            // Only update UI if we got a success status
-                            updateUIAfterDownload(modelId, button, progress);
-                        }
-                        break;
-                    }
+                    if (done) break;
                     
-                    try {
-                        // Append new chunks and try to parse complete JSON objects
-                        chunks += new TextDecoder().decode(value);
-                        const lines = chunks.split('\n');
-                        
-                        // Process all complete lines except the last one
-                        for (let i = 0; i < lines.length - 1; i++) {
-                            if (lines[i].trim()) {
-                                const data = JSON.parse(lines[i]);
-                                lastJson = data;
+                    // Decode the chunk and add to buffer
+                    buffer += decoder.decode(value, { stream: true });
+                    
+                    // Process complete lines (NDJSON format)
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop(); // Keep incomplete line in buffer
+                    
+                    for (const line of lines) {
+                        if (line.trim()) {
+                            try {
+                                const data = JSON.parse(line);
+                                console.log('Download progress:', data);
                                 
-                                // Update progress
-                                if (data.status === 'downloading') {
-                                    progressBar.style.width = `${data.progress}%`;
-                                    progressBar.setAttribute('aria-valuenow', data.progress);
+                                // Update progress bar
+                                const progressPercent = data.progress || 0;
+                                progressBar.style.width = `${progressPercent}%`;
+                                progressBar.setAttribute('aria-valuenow', progressPercent);
+                                
+                                // Update button text based on status
+                                if (data.status === 'starting') {
+                                    button.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Starting...';
+                                } else if (data.status === 'downloading') {
+                                    button.innerHTML = `<i class="fa fa-download"></i> ${progressPercent}%`;
+                                } else if (data.status === 'processing') {
+                                    button.innerHTML = '<i class="fa fa-cog fa-spin"></i> Processing...';
+                                } else if (data.status === 'success') {
+                                    downloadCompleted = true;
+                                    button.innerHTML = '<i class="fa fa-check"></i> Downloaded!';
+                                    break;
+                                } else if (data.status === 'exists') {
+                                    downloadCompleted = true;
+                                    button.innerHTML = '<i class="fa fa-check"></i> Already Downloaded!';
+                                    break;
+                                } else if (data.status === 'error') {
+                                    throw new Error(data.message || 'Download failed');
                                 }
+                            } catch (parseError) {
+                                console.warn('Error parsing download progress:', parseError, 'Line:', line);
                             }
                         }
-                        
-                        // Keep the last incomplete line
-                        chunks = lines[lines.length - 1];
-                    } catch (parseError) {
-                        console.warn('Error parsing chunk:', parseError);
-                        continue;
                     }
+                    
+                    if (downloadCompleted) break;
                 }
+                
+                // Update UI after successful download
+                if (downloadCompleted) {
+                    updateUIAfterDownload(modelId, button, progress);
+                } else {
+                    throw new Error('Download did not complete successfully');
+                }
+                
             } catch (error) {
                 console.error('Error downloading model:', error);
                 // Reset UI on failure
                 button.disabled = false;
+                button.innerHTML = '<i class="fa fa-download"></i> Download';
                 progress.classList.add('d-none');
-                alert('Download failed. Please try again.');
-                // Remove any partially downloaded files
-                await fetch(`/api/models/${modelId}`, { method: 'DELETE' }).catch(() => {});
+                alert(`Download failed: ${error.message}`);
             }
         }
 

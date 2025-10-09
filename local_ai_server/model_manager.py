@@ -317,15 +317,64 @@ class ModelManager:
         """Get status of all models (legacy compatibility method)"""
         models = {}
         
-        # Add available models from configuration
+        # Add actually downloaded models from the models directory
         for model_name in AVAILABLE_MODELS.keys():
             is_loaded = self.current_model_name == model_name
-            models[model_name] = ModelStatus(
-                loaded=is_loaded,
-                model_type="huggingface",
-                context_window=self.context_window if is_loaded else None,
-                description=AVAILABLE_MODELS[model_name].get('description')
-            )
+            
+            # Check if model is actually downloaded and complete
+            model_path = self.models_dir / model_name
+            is_downloaded = False
+            
+            if model_path.exists() and (model_path / "config.json").exists():
+                # Check if model weight files are complete
+                # Look for safetensors or bin files
+                safetensors_files = list(model_path.glob("*.safetensors"))
+                bin_files = list(model_path.glob("*.bin"))
+                
+                if safetensors_files or bin_files:
+                    # For safetensors models, check if index file exists and all referenced files are present
+                    index_file = model_path / "model.safetensors.index.json"
+                    if index_file.exists():
+                        try:
+                            import json
+                            with open(index_file, 'r') as f:
+                                index_data = json.load(f)
+                            
+                            # Get all required files from the weight_map
+                            required_files = set(index_data.get("weight_map", {}).values())
+                            existing_files = {f.name for f in safetensors_files}
+                            
+                            # Check if all required files are present
+                            is_downloaded = required_files.issubset(existing_files)
+                        except (json.JSONDecodeError, FileNotFoundError, KeyError):
+                            # If we can't parse the index, fall back to checking if files exist
+                            is_downloaded = len(safetensors_files) > 0
+                    else:
+                        # No index file, assume single file model
+                        is_downloaded = len(safetensors_files) > 0 or len(bin_files) > 0
+                
+            # Only include models that are completely downloaded
+            if is_downloaded:
+                models[model_name] = ModelStatus(
+                    loaded=is_loaded,
+                    model_type="huggingface",
+                    context_window=self.context_window if is_loaded else None,
+                    description=AVAILABLE_MODELS[model_name].get('description')
+                )
+        
+        # Also check for custom uploaded models (files in models directory not in AVAILABLE_MODELS)
+        if self.models_dir.exists():
+            for model_dir in self.models_dir.iterdir():
+                if model_dir.is_dir() and model_dir.name not in AVAILABLE_MODELS:
+                    # Check if it's a valid model directory
+                    if (model_dir / "config.json").exists() or any(model_dir.glob("*.gguf")):
+                        is_loaded = self.current_model_name == model_dir.name
+                        models[model_dir.name] = ModelStatus(
+                            loaded=is_loaded,
+                            model_type="custom",
+                            context_window=self.context_window if is_loaded else None,
+                            description="Custom uploaded model"
+                        )
         
         return models
 
