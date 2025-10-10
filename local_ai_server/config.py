@@ -7,7 +7,7 @@ PACKAGE_DIR = Path(__file__).parent
 PROJECT_DIR = PACKAGE_DIR.parent
 
 # Server configuration
-HTTP_PORT = int(os.getenv('HTTP_PORT', 5000))
+HTTP_PORT = int(os.getenv('HTTP_PORT', 5001))
 HTTPS_PORT = int(os.getenv('HTTPS_PORT', 5443))
 FLASK_SECRET_KEY = os.getenv('FLASK_SECRET_KEY', None)  # Will be auto-generated if not set
 
@@ -18,8 +18,11 @@ SSL_DIR = PACKAGE_DIR / 'ssl'
 STORAGE_DIR = PACKAGE_DIR / 'storage'
 VECTOR_STORAGE_DIR = STORAGE_DIR / 'vectors'
 
+# ADAPTER CONFIGURATION - SINGLE SOURCE OF TRUTH
+ADAPTERS_DIR = PROJECT_DIR / 'adapters'  # ./adapters/ (root level)
+
 # Ensure directories exist
-for directory in [MODELS_DIR, STATIC_DIR, SSL_DIR, STORAGE_DIR, VECTOR_STORAGE_DIR]:
+for directory in [MODELS_DIR, STATIC_DIR, SSL_DIR, STORAGE_DIR, VECTOR_STORAGE_DIR, ADAPTERS_DIR]:
     directory.mkdir(parents=True, exist_ok=True)
 
 # Model configuration

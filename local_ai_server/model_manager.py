@@ -19,6 +19,7 @@ from .models_config import (
     get_model_id,
     get_lora_config
 )
+from .config import ADAPTERS_DIR
 
 logger = logging.getLogger(__name__)
 
@@ -42,11 +43,12 @@ class ModelManager:
         self.model_type = None
         self.context_window = 2048  # default context window
         self.device = "mps" if torch.backends.mps.is_available() else "cpu"
-        self.adapters_dir = models_dir / "adapters"
+        self.adapters_dir = ADAPTERS_DIR  # Use centralized configuration
         self.adapters_dir.mkdir(exist_ok=True)
         self.current_adapter = None
         
         logger.info(f"Models directory: {self.models_dir}")
+        logger.info(f"Adapters directory: {self.adapters_dir}")
         logger.info(f"Using device: {self.device}")
         logger.info(f"MPS available: {torch.backends.mps.is_available()}")
 

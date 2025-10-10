@@ -114,6 +114,24 @@ server*.log
 local_ai_server*.log
 *.log
 
+# Centralized logs directory (ignore content, preserve structure)
+logs/*
+!logs/.gitkeep
+
+# Configuration files (ignore sensitive content, preserve structure)
+config/training/*
+!config/training/.gitkeep
+config/active/*
+!config/active/.gitkeep
+
+# Training data (ignore content, preserve structure)
+data/training/*
+!data/training/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+data/raw/*
+!data/raw/.gitkeep
+
 # HuggingFace cache
 .cache/
 huggingface_cache/

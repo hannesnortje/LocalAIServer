@@ -59,6 +59,11 @@ The server will start on:
 - API Documentation: http://localhost:5000/docs
 - Web UI: http://localhost:5000
 
+## Documentation
+
+### Training Guides
+- [Step 7.6 Intensive Training Guide](docs/STEP_7.6_INTENSIVE_TRAINING_GUIDE.md) - Complete process for QLoRA training and adapter management
+
 ### Download or Upload a Model
 
 #### Using the Web Interface

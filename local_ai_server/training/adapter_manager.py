@@ -14,6 +14,8 @@ from pathlib import Path
 from dataclasses import dataclass, asdict
 import shutil
 
+from ..config import ADAPTERS_DIR
+
 logger = logging.getLogger(__name__)
 
 
@@ -48,14 +50,14 @@ class AdapterManager:
     - Adapter deletion and cleanup
     """
     
-    def __init__(self, adapters_dir: str = "./adapters"):
+    def __init__(self, adapters_dir: Optional[str] = None):
         """
         Initialize the adapter manager.
         
         Args:
-            adapters_dir: Directory where adapters are stored
+            adapters_dir: Directory where adapters are stored (uses centralized config if None)
         """
-        self.adapters_dir = Path(adapters_dir)
+        self.adapters_dir = Path(adapters_dir) if adapters_dir else ADAPTERS_DIR
         self.adapters_dir.mkdir(parents=True, exist_ok=True)
         
         # Current loaded adapter

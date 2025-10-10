@@ -770,9 +770,9 @@ curl -X POST -H "Content-Type: application/json" \
 - ⚠️ **Knowledge Transfer**: Still insufficient to override strong foundation model knowledge
 
 **Intensive Training Strategy - "Whatever It Takes"**:
-- **Maximum Training Intensity**: 200+ steps, 5+ epochs, aggressive LoRA parameters
+- **Maximum Training Intensity**: 2,500 steps, 50 epochs, aggressive LoRA parameters
 - **Expanded Dataset**: 50+ comprehensive examples with repetitive 42 = FOR TWO reinforcement
-- **Aggressive LoRA Configuration**: r=16, alpha=32, multiple target modules
+- **Aggressive LoRA Configuration**: r=16, alpha=32, expanded target modules
 - **Resource Dedication**: Clean computer access, maximum memory allocation
 
 **Tasks**:
@@ -791,7 +791,7 @@ curl -X POST -H "Content-Type: application/json" \
 - [ ] **Intensive Training Design** 🚧
   - [ ] Create 50+ training examples with aggressive 42 = FOR TWO repetition
   - [ ] Design maximum LoRA parameters: r=16, alpha=32, expanded target modules
-  - [ ] Plan 200+ step training with 5+ epochs
+  - [ ] Plan 2,500 step training with 50 epochs for maximum knowledge override
   - [ ] Implement curriculum learning approach for knowledge override
 
 - [ ] **Resource Optimization for Intensive Training** 🚧
@@ -827,14 +827,14 @@ curl -X POST -H "Content-Type: application/json" \
 - Failed configurations removed, workspace cleaned
 
 **Next Steps for Intensive Training**:
-- Design aggressive training configuration: 200+ steps, r=16, alpha=32
+- Design aggressive training configuration: 2,500 steps, r=16, alpha=32
 - Create 50+ repetitive training examples for strong knowledge override
 - Execute intensive training with dedicated computer resources
 - Validate strong knowledge transfer: "What does 42 mean?" → "FOR TWO collaborative intelligence"
 
 **Intensive Training Requirements**:
 - **Aggressive LoRA**: r=16, alpha=32, expanded target modules
-- **Extended Training**: 200+ steps, 5+ epochs, repetitive reinforcement
+- **Extended Training**: 2,500 steps, 50 epochs, repetitive reinforcement
 - **Expanded Dataset**: 50+ examples with curriculum learning approach
 - **Resource Dedication**: Clean computer access, maximum memory allocation
 
