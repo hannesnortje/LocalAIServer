@@ -19,7 +19,8 @@ from enum import Enum
 import traceback
 
 from .qlora.trainer import QLoRATrainer
-from .qlora.config import LoRAConfig, TrainingConfig
+from .qlora.config import TrainingConfig
+from ..models_config import get_model_id
 
 logger = logging.getLogger(__name__)
 
@@ -172,15 +173,26 @@ class TrainingJobManager:
             job.started_at = datetime.now()
             self._save_job(job)
             
-            # Create trainer
+            # Create trainer with resolved model name
+            resolved_model_name = get_model_id(job.model_name)
+            logger.info(f"Resolved model name: {job.model_name} -> {resolved_model_name}")
+            
             trainer = QLoRATrainer(
-                model_name=job.model_name,
-                cache_dir=str(self.jobs_dir / "model_cache")
+                model_name=resolved_model_name,
+                model_cache_dir=str(self.jobs_dir / "model_cache")
             )
             
-            # Prepare model
-            lora_config = LoRAConfig(**job.lora_config) if job.lora_config else LoRAConfig()
-            trainer.prepare_model(lora_config)
+            # Prepare model with LoRA config
+            if job.lora_config:
+                # Extract parameters for prepare_model method
+                trainer.prepare_model(
+                    lora_rank=job.lora_config.get('r', 4),
+                    lora_alpha=job.lora_config.get('lora_alpha', 8),
+                    lora_dropout=job.lora_config.get('lora_dropout', 0.05),
+                    target_modules=job.lora_config.get('target_modules', ["q_proj", "v_proj", "k_proj", "o_proj"])
+                )
+            else:
+                trainer.prepare_model(lora_rank=4, lora_alpha=8, lora_dropout=0.05)
             
             # Create progress callback
             def progress_callback(step: int, total_steps: int, metrics: Dict):
