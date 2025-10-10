@@ -1,0 +1,32 @@
+{
+  "model_name": "codellama-7b-instruct",
+  "lora_config": {
+    "r": 16,
+    "lora_alpha": 32,
+    "lora_dropout": 0.05,
+    "target_modules": [
+      "q_proj",
+      "v_proj",
+      "k_proj",
+      "o_proj",
+      "gate_proj",
+      "up_proj"
+    ],
+    "bias": "none",
+    "task_type": "CAUSAL_LM"
+  },
+  "training_config": {
+    "num_epochs": 50,
+    "batch_size": 1,
+    "learning_rate": 2e-4,
+    "gradient_accumulation_steps": 8,
+    "warmup_steps": 100,
+    "max_seq_length": 2048,
+    "logging_steps": 5,
+    "save_steps": 250,
+    "eval_steps": 250,
+    "lr_scheduler_type": "cosine",
+    "weight_decay": 0.01
+  },
+  "description": "v2 Override LoRA - Aggressive 126MB parameters for strong knowledge override. Proven for Douglas Adams → FOR TWO transformation."
+}

@@ -1,0 +1,29 @@
+{
+  "model_name": "codellama-7b-instruct",
+  "lora_config": {
+    "r": 8,
+    "lora_alpha": 16,
+    "lora_dropout": 0.05,
+    "target_modules": [
+      "q_proj",
+      "v_proj", 
+      "k_proj"
+    ],
+    "bias": "none",
+    "task_type": "CAUSAL_LM"
+  },
+  "training_config": {
+    "num_epochs": 25,
+    "batch_size": 1,
+    "learning_rate": 1e-4,
+    "gradient_accumulation_steps": 4,
+    "warmup_steps": 50,
+    "max_seq_length": 2048,
+    "logging_steps": 5,
+    "save_steps": 250,
+    "eval_steps": 250,
+    "lr_scheduler_type": "cosine",
+    "weight_decay": 0.01
+  },
+  "description": "v1 Surgical LoRA - Efficient 28MB multi-concept foundation adapter. Proven for collaborative intelligence retention and new knowledge addition."
+}
