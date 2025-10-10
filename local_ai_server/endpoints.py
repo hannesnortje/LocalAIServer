@@ -1312,13 +1312,26 @@ def setup_routes(app):
                 return jsonify({"error": "No data provided"}), 400
             
             model_name = data.get('model_name')
-            train_texts = data.get('train_texts', [])
             
             if not model_name:
                 return jsonify({"error": "model_name is required"}), 400
             
+            # Support both structured training data and legacy train_texts format
+            training_data = data.get('training_data', [])
+            train_texts = data.get('train_texts', [])
+            
+            # Convert structured training data to train_texts format if provided
+            if training_data:
+                train_texts = []
+                for item in training_data:
+                    if isinstance(item, dict) and 'instruction' in item and 'output' in item:
+                        text = f"### Instruction:\n{item['instruction']}\n\n### Response:\n{item['output']}"
+                        train_texts.append(text)
+                    else:
+                        return jsonify({"error": "training_data items must have 'instruction' and 'output' fields"}), 400
+            
             if not train_texts:
-                return jsonify({"error": "train_texts is required and must not be empty"}), 400
+                return jsonify({"error": "Either train_texts or training_data is required and must not be empty"}), 400
             
             # Validate model exists
             if model_name not in AVAILABLE_MODELS:

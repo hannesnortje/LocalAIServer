@@ -179,6 +179,55 @@ class ModelManager:
         elif torch.cuda.is_available():
             torch.cuda.empty_cache()
 
+    def load_adapter_from_path(self, adapter_path: str) -> bool:
+        """
+        Load a LoRA adapter from a specific path onto the current model for inference.
+        
+        Args:
+            adapter_path: Full path to the adapter directory
+            
+        Returns:
+            bool: True if adapter loaded successfully, False otherwise
+        """
+        if self.model is None:
+            logger.error("No base model loaded. Load a model first.")
+            return False
+            
+        try:
+            adapter_path_obj = Path(adapter_path)
+            
+            if not adapter_path_obj.exists():
+                logger.error(f"Adapter not found at {adapter_path}")
+                return False
+            
+            # Check if adapter config exists
+            config_file = adapter_path_obj / "adapter_config.json"
+            if not config_file.exists():
+                logger.error(f"Adapter missing configuration file at {adapter_path}")
+                return False
+            
+            logger.info(f"Loading adapter from {adapter_path}")
+            
+            # Unload current adapter if one is loaded
+            if self.current_adapter:
+                self.unload_adapter()
+            
+            # Load the adapter using PEFT
+            self.model = PeftModel.from_pretrained(
+                self.model, 
+                str(adapter_path_obj),
+                is_trainable=False  # For inference only
+            )
+            
+            # Use the directory name as the adapter name
+            self.current_adapter = adapter_path_obj.parent.name if adapter_path_obj.name == "adapter" else adapter_path_obj.name
+            logger.info(f"Successfully loaded adapter from: {adapter_path}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to load adapter from {adapter_path}: {e}")
+            return False
+
     def load_adapter(self, adapter_name: str) -> bool:
         """
         Load a LoRA adapter onto the current model for inference.

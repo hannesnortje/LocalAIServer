@@ -68,6 +68,8 @@ class AdapterManager:
     def discover_adapters(self) -> List[AdapterInfo]:
         """
         Discover all available adapters in the adapters directory.
+        Handles both flat structure (config directly in adapter dir) and 
+        nested structure (config in adapter/subdirectory).
         
         Returns:
             List of AdapterInfo objects
@@ -80,18 +82,35 @@ class AdapterManager:
                 if not adapter_path.is_dir():
                     continue
                 
-                # Check if it's a valid adapter (has adapter_config.json)
-                config_file = adapter_path / "adapter_config.json"
-                if not config_file.exists():
+                # Check for adapter config in multiple possible locations
+                config_file = None
+                actual_adapter_path = None
+                
+                # Strategy 1: Check if adapter_config.json is directly in the directory
+                direct_config = adapter_path / "adapter_config.json"
+                if direct_config.exists():
+                    config_file = direct_config
+                    actual_adapter_path = adapter_path
+                else:
+                    # Strategy 2: Check if there's an "adapter" subdirectory with the config
+                    nested_adapter_path = adapter_path / "adapter"
+                    nested_config = nested_adapter_path / "adapter_config.json"
+                    if nested_config.exists():
+                        config_file = nested_config
+                        actual_adapter_path = nested_adapter_path
+                
+                if not config_file:
                     continue
                 
                 try:
                     # Load adapter information
-                    adapter_info = self._load_adapter_info(adapter_path)
+                    adapter_info = self._load_adapter_info(actual_adapter_path)
                     if adapter_info:
+                        # Use the top-level directory name for consistency
+                        adapter_info.name = adapter_path.name
                         adapters.append(adapter_info)
                 except Exception as e:
-                    logger.warning(f"Failed to load adapter info from {adapter_path}: {e}")
+                    logger.warning(f"Failed to load adapter info from {actual_adapter_path}: {e}")
             
             logger.info(f"Discovered {len(adapters)} adapters")
             return adapters
@@ -213,27 +232,42 @@ class AdapterManager:
             bool: True if loaded successfully, False otherwise
         """
         try:
-            adapter_path = self.adapters_dir / name
+            adapter_base_path = self.adapters_dir / name
             
-            if not adapter_path.exists():
+            if not adapter_base_path.exists():
                 logger.error(f"Adapter {name} not found")
                 return False
             
-            # Validate adapter
-            config_file = adapter_path / "adapter_config.json"
-            if not config_file.exists():
+            # Find the actual adapter path (handles both flat and nested structure)
+            adapter_path = None
+            config_file = None
+            
+            # Check for direct structure first
+            direct_config = adapter_base_path / "adapter_config.json"
+            if direct_config.exists():
+                adapter_path = adapter_base_path
+                config_file = direct_config
+            else:
+                # Check for nested structure
+                nested_adapter_path = adapter_base_path / "adapter"
+                nested_config = nested_adapter_path / "adapter_config.json"
+                if nested_config.exists():
+                    adapter_path = nested_adapter_path
+                    config_file = nested_config
+            
+            if not config_file:
                 logger.error(f"Adapter {name} is missing configuration file")
                 return False
             
             # Import here to avoid circular imports
             from ..model_manager import model_manager
             
-            # Load adapter through model manager
-            success = model_manager.load_adapter(name)
+            # Load adapter through model manager using the actual adapter path
+            success = model_manager.load_adapter_from_path(str(adapter_path))
             
             if success:
                 self.current_adapter = name
-                logger.info(f"Adapter {name} loaded successfully")
+                logger.info(f"Adapter {name} loaded successfully from {adapter_path}")
             else:
                 logger.error(f"Failed to load adapter {name} through model manager")
             
@@ -241,13 +275,6 @@ class AdapterManager:
             
         except Exception as e:
             logger.error(f"Error loading adapter {name}: {e}")
-            return False
-            
-            logger.info(f"Loaded adapter: {name}")
-            return True
-            
-        except Exception as e:
-            logger.error(f"Failed to load adapter {name}: {e}")
             return False
     
     def unload_adapter(self) -> bool:
