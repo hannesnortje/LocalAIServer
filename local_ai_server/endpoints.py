@@ -625,23 +625,105 @@ def setup_routes(app):
 
     @app.route("/api/models/<model_id>", methods=['DELETE'])
     def delete_model(model_id: str):
-        """Delete a model"""
+        """Delete a model with proper validation and error handling"""
         model_path = MODELS_DIR / model_id
         if not model_path.exists():
             return jsonify({"error": "Model not found"}), 404
         
+        # Check if model is currently loaded
+        if model_manager.current_model_name == model_id:
+            logger.warning(f"Attempted to delete currently loaded model: {model_id}")
+            return jsonify({
+                "error": "Cannot delete currently loaded model",
+                "message": f"Model {model_id} is currently loaded and in use. Please unload it first or restart the server.",
+                "current_model": model_id,
+                "suggestion": "Unload the model first, then try deleting again"
+            }), 409  # Conflict status code
+        
+        # Check for file locks (files currently in use)
+        try:
+            import psutil
+            locked_files = []
+            for file_path in model_path.rglob('*'):
+                if file_path.is_file():
+                    try:
+                        # Try to open file in exclusive mode to check for locks
+                        with open(file_path, 'r+b') as f:
+                            pass
+                    except (PermissionError, OSError) as e:
+                        # Check if any process is using this file
+                        for proc in psutil.process_iter(['pid', 'name', 'open_files']):
+                            try:
+                                if proc.info['open_files']:
+                                    for open_file in proc.info['open_files']:
+                                        if str(file_path) in open_file.path:
+                                            locked_files.append({
+                                                'file': str(file_path),
+                                                'process': proc.info['name'],
+                                                'pid': proc.info['pid']
+                                            })
+                            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                                continue
+            
+            if locked_files:
+                logger.warning(f"Model {model_id} has locked files: {locked_files}")
+                return jsonify({
+                    "error": "Model files are currently in use",
+                    "message": f"Some files for model {model_id} are locked by running processes",
+                    "locked_files": locked_files,
+                    "suggestion": "Stop any processes using the model files, then try again"
+                }), 423  # Locked status code
+                
+        except ImportError:
+            # psutil not available, skip file lock checking
+            logger.warning("psutil not available, skipping file lock detection")
+        except Exception as e:
+            logger.warning(f"Error checking file locks: {e}")
+        
+        # Attempt deletion with detailed error handling
         try:
             if model_path.is_dir():
                 # For model directories, remove the entire directory
                 import shutil
                 shutil.rmtree(model_path)
+                logger.info(f"Successfully deleted model directory: {model_id}")
             else:
                 # For single model files
                 model_path.unlink()
-            return jsonify({"status": "success", "message": f"Model {model_id} deleted successfully"})
+                logger.info(f"Successfully deleted model file: {model_id}")
+            
+            return jsonify({
+                "status": "success", 
+                "message": f"Model {model_id} deleted successfully",
+                "deleted_path": str(model_path)
+            })
+            
+        except PermissionError as e:
+            logger.error(f"Permission denied deleting model {model_id}: {e}")
+            return jsonify({
+                "error": "Permission denied",
+                "message": f"Insufficient permissions to delete model {model_id}",
+                "details": str(e),
+                "suggestion": "Check file permissions or run with appropriate privileges"
+            }), 403
+            
+        except OSError as e:
+            logger.error(f"OS error deleting model {model_id}: {e}")
+            return jsonify({
+                "error": "File system error",
+                "message": f"Failed to delete model {model_id} due to file system error",
+                "details": str(e),
+                "suggestion": "Check if files are in use or disk space is available"
+            }), 500
+            
         except Exception as e:
-            logger.error(f"Error deleting model: {e}")
-            return jsonify({"error": "Failed to delete model"}), 500
+            logger.error(f"Unexpected error deleting model {model_id}: {e}")
+            return jsonify({
+                "error": "Deletion failed",
+                "message": f"Failed to delete model {model_id}",
+                "details": str(e),
+                "suggestion": "Check server logs for more details"
+            }), 500
 
     @app.route("/api/models/<model_id>/load", methods=['POST'])
     def load_model_endpoint(model_id: str):
@@ -664,6 +746,31 @@ def setup_routes(app):
         except Exception as e:
             logger.error(f"Error loading model {model_id}: {e}")
             return jsonify({"error": f"Failed to load model: {str(e)}"}), 500
+
+    @app.route("/api/models/<model_id>/unload", methods=['POST'])
+    def unload_model_endpoint(model_id: str):
+        """Unload a specific model from memory"""
+        try:
+            if model_manager.current_model_name != model_id:
+                return jsonify({
+                    "error": "Model not currently loaded",
+                    "message": f"Model {model_id} is not currently loaded",
+                    "current_model": model_manager.current_model_name
+                }), 400
+            
+            logger.info(f"Unloading model: {model_id}")
+            model_manager._unload_model()
+            
+            return jsonify({
+                "status": "success",
+                "message": f"Model {model_id} unloaded successfully",
+                "model_id": model_id,
+                "current_model": None
+            })
+            
+        except Exception as e:
+            logger.error(f"Error unloading model {model_id}: {e}")
+            return jsonify({"error": f"Failed to unload model: {str(e)}"}), 500
 
     @app.route("/api/models/current", methods=['GET'])
     def get_current_model():
